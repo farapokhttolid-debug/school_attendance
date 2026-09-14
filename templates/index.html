@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.APP_NAME }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>{{ config.APP_NAME }}</h1>
+            <div class="user-info">
+                <span>{{ session.username }}</span>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <h2>خوش آمدید</h2>
+        <p>سیستم حضور و غیاب آماده است.</p>
+
+        <div class="menu-grid">
+            <a href="#" class="menu-item">ثبت حضور و غیاب</a>
+            <a href="#" class="menu-item">مدیریت پرسنل</a>
+            <a href="#" class="menu-item">گزارش‌ها</a>
+            {% if session.is_admin %}
+            <a href="#" class="menu-item">تنظیمات</a>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورود به سیستم - {{ config.APP_NAME }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h1>سیستم حضور و غیاب مدرسه</h1>
+            <h2>ورود به سیستم</h2>
+
+            {% if error %}
+            <div class="error-message">{{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="/login">
+                <div class="form-group">
+                    <label>نام کاربری (۴ رقم)</label>
+                    <input type="text" name="username" maxlength="4" pattern="\d{4}" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>رمز عبور (۴ رقم)</label>
+                    <input type="password" name="password" maxlength="4" pattern="\d{4}" required>
+                </div>
+                <button type="submit" class="btn-login">ورود</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
