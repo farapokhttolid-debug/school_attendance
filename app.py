@@ -17,7 +17,6 @@ app.secret_key = current_config.SECRET_KEY
 # بعداً که فایل‌های جدید رو ساختیم، اینجا اضافه می‌کنیم
 
 
-# ========== محافظت از مسیرها ==========
 _first_request_done = False
 
 @app.before_request
@@ -26,16 +25,15 @@ def check_login():
     if not _first_request_done:
         _first_request_done = True
         try:
+            init_db()                      
             create_default_super_admin()
         except Exception as e:
-            logger.error(f"خطا در ساخت Super Admin: {e}")
+            logger.error(f"خطا در راه‌اندازی اولیه: {e}")
 
     public_routes = ['login_page', 'static', 'health_check']
     if request.endpoint and request.endpoint not in public_routes:
         if 'user_id' not in session:
             return redirect('/login')
-
-
 # ========== مسیرهای اصلی ==========
 @app.route('/')
 def index():
