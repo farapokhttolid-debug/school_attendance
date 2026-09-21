@@ -7,7 +7,7 @@ from core.logger import get_logger
 from blueprints.database import init_db
 from blueprints import students as students_bp
 from blueprints.decorators import admin_required
-
+from blueprints import attendance as attendance_bp
 logger = get_logger(__name__)
 
 app = Flask(__name__)
@@ -56,6 +56,25 @@ def api_students_classes():
 @admin_required
 def api_students_upload_excel():
     return students_bp.upload_excel()
+
+@app.route('/attendance')
+def attendance_page():
+    return attendance_bp.attendance_page()
+
+
+@app.route('/api/attendance/list')
+def api_attendance_list():
+    return attendance_bp.get_attendance_list()
+
+
+@app.route('/api/attendance/save', methods=['POST'])
+def api_attendance_save():
+    return attendance_bp.save_attendance()
+
+
+@app.route('/api/attendance/save_bulk', methods=['POST'])
+def api_attendance_save_bulk():
+    return attendance_bp.save_attendance_bulk()
 
 _first_request_done = False
 

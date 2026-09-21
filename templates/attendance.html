@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ثبت حضور و غیاب</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>ثبت حضور و غیاب</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- فیلترها و انتخاب تاریخ -->
+        <section class="card">
+            <h2>فیلتر و تاریخ</h2>
+            <div class="filters">
+                <label>تاریخ (شمسی):</label>
+                <input type="text" id="attendanceDate" placeholder="1404/06/30">
+                <select id="filterGrade">
+                    <option value="">همه پایه‌ها</option>
+                </select>
+                <select id="filterClass">
+                    <option value="">همه کلاس‌ها</option>
+                </select>
+                <input type="text" id="filterSearch" placeholder="جستجو (نام، کد ملی)">
+                <button id="btnSearch" class="btn-primary">جستجو</button>
+                <button id="btnToday" class="btn-secondary">امروز</button>
+            </div>
+        </section>
+
+        <!-- لیست حضور -->
+        <section class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="border:none; margin:0;">لیست دانش‌آموزان</h2>
+                <div>
+                    <span id="countInfo" class="count-info"></span>
+                    <button id="btnSaveAll" class="btn-primary" style="margin-right:10px;">💾 ذخیره همه</button>
+                </div>
+            </div>
+
+            <div id="attendanceMessage"></div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>کد ملی</th>
+                        <th>نام و نام خانوادگی</th>
+                        <th>پایه</th>
+                        <th>کلاس</th>
+                        <th>وضعیت</th>
+                        <th>یادداشت</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceTable">
+                    <tr><td colspan="7" style="text-align:center;">در حال بارگذاری...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        let currentStudents = [];
+
+        // وضعیت‌ها
+        const statusLabels = {
+            'present': '✅ حاضر',
+            'absent': '❌ غایب',
+            'leave': '📋 مرخصی',
+            'late': '⏰ تاخیر'
+        };
+
+        // ==================== تاریخ امروز ====================
+        function setTodayDate() {
+            fetch('/api/get_jalali_date')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('attendanceDate').value = d.date;
+                    loadAttendance();
+                })
+                .catch(() => {
+                    loadAttendance();
+                });
+        }
+
+        // ==================== لود فیلترها ====================
+        async function loadGrades() {
+            const res = await fetch('/api/students/grades');
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('filterGrade');
+                sel.innerHTML = '<option value="">همه پایه‌ها</option>';
+                data.grades.forEach(g => {
+                    sel.innerHTML += `<option value="${g}">${g}</option>`;
+                });
+            }
+        }
+
+        async function loadClasses(grade = '') {
+            const res = await fetch('/api/students/classes?grade=' + encodeURIComponent(grade));
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('filterClass');
+                sel.innerHTML = '<option value="">همه کلاس‌ها</option>';
+                data.classes.forEach(c => {
+                    sel.innerHTML += `<option value="${c}">${c}</option>`;
+                });
+            }
+        }
+
+        // ==================== لود لیست حضور ====================
+        async function loadAttendance() {
+            const grade = document.getElementById('filterGrade').value;
+            const cls = document.getElementById('filterClass').value;
+            const search = document.getElementById('filterSearch').value;
+            const date = document.getElementById('attendanceDate').value;
+
+            const url = `/api/attendance/list?grade=${encodeURIComponent(grade)}&class_name=${encodeURIComponent(cls)}&search=${encodeURIComponent(search)}&date=${encodeURIComponent(date)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            const tbody = document.getElementById('attendanceTable');
+            document.getElementById('countInfo').innerText = `تعداد: ${data.count || 0}`;
+
+            if (!data.success || !data.students.length) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">دانش‌آموزی یافت نشد</td></tr>';
+                currentStudents = [];
+                return;
+            }
+
+            currentStudents = data.students;
+
+            tbody.innerHTML = data.students.map((s, i) => `
+                <tr data-student-id="${s.id}">
+                    <td>${i + 1}</td>
+                    <td>${s.national_code}</td>
+                    <td>${s.first_name} ${s.last_name}</td>
+                    <td>${s.grade}</td>
+                    <td>${s.class_name}</td>
+                    <td>
+                        <select class="status-select" data-student-id="${s.id}" onchange="onStatusChange(this)">
+                            <option value="present" ${s.status === 'present' ? 'selected' : ''}>✅ حاضر</option>
+                            <option value="absent" ${s.status === 'absent' ? 'selected' : ''}>❌ غایب</option>
+                            <option value="leave" ${s.status === 'leave' ? 'selected' : ''}>📋 مرخصی</option>
+                            <option value="late" ${s.status === 'late' ? 'selected' : ''}>⏰ تاخیر</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="note-input" data-student-id="${s.id}" value="${s.note || ''}" placeholder="یادداشت...">
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== تغییر وضعیت ====================
+        function onStatusChange(select) {
+            const studentId = select.dataset.studentId;
+            const status = select.value;
+            // فقط رنگ ردیف رو تغییر می‌دیم، ذخیره دستی می‌شه
+            const row = select.closest('tr');
+            row.style.background = status === 'absent' ? '#ffe5e5'
+                                 : status === 'leave' ? '#fff5e5'
+                                 : status === 'late' ? '#fffbe5'
+                                 : '';
+        }
+
+        // ==================== ذخیره همه ====================
+        document.getElementById('btnSaveAll').onclick = async () => {
+            const date = document.getElementById('attendanceDate').value;
+            const items = [];
+
+            document.querySelectorAll('tr[data-student-id]').forEach(row => {
+                const studentId = parseInt(row.dataset.studentId);
+                const select = row.querySelector('.status-select');
+                const noteInput = row.querySelector('.note-input');
+                items.push({
+                    student_id: studentId,
+                    status: select.value,
+                    note: noteInput.value.trim()
+                });
+            });
+
+            if (!items.length) return alert('چیزی برای ذخیره نیست');
+
+            const msg = document.getElementById('attendanceMessage');
+            msg.innerHTML = '⏳ در حال ذخیره...';
+
+            const res = await fetch('/api/attendance/save_bulk', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({items, date})
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                msg.innerHTML = `<div style="color:green;">✅ ${data.message}</div>`;
+                setTimeout(() => msg.innerHTML = '', 3000);
+            } else {
+                msg.innerHTML = `<div style="color:red;">❌ ${data.error}</div>`;
+            }
+        };
+
+        // ==================== فیلتر ====================
+        document.getElementById('filterGrade').addEventListener('change', (e) => {
+            loadClasses(e.target.value);
+        });
+
+        document.getElementById('btnSearch').onclick = loadAttendance;
+
+        document.getElementById('btnToday').onclick = () => {
+            setTodayDate();
+        };
+
+        // ==================== شروع ====================
+        loadGrades();
+        loadClasses();
+        setTodayDate();
+    </script>
+</body>
+</html>
