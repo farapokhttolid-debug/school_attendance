@@ -52,6 +52,11 @@ def api_students_grades():
 def api_students_classes():
     return students_bp.get_classes()
 
+@app.route('/api/students/upload_excel', methods=['POST'])
+@admin_required
+def api_students_upload_excel():
+    return students_bp.upload_excel()
+
 _first_request_done = False
 
 @app.before_request

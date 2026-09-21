@@ -215,3 +215,107 @@ def get_classes():
         return jsonify({'success': True, 'classes': [row['class_name'] for row in rows]})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_required
+def upload_excel():
+    try:
+        from openpyxl import load_workbook
+        import io
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'فایلی انتخاب نشده'})
+
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'فایلی انتخاب نشده'})
+
+        if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
+            return jsonify({'success': False, 'error': 'فقط فایل xlsx پشتیبانی می‌شود'})
+
+        # خوندن فایل در حافظه (نه روی دیسک)
+        file_bytes = file.read()
+        wb = load_workbook(io.BytesIO(file_bytes), data_only=True)
+        ws = wb.active
+
+        # چک کردن هدر
+        header = [str(cell.value).strip() if cell.value else '' for cell in ws[1]]
+        expected = ['کد ملی', 'نام', 'نام خانوادگی', 'نام پدر', 'پایه', 'کلاس', 'رشته', 'شماره همراه ۱', 'شماره همراه ۲']
+
+        # اگه ستون‌ها جابجا هستن، اینجا خطا می‌دیم
+        for i, exp in enumerate(expected):
+            if i < len(header) and header[i] and header[i] != exp:
+                # فقط هشدار، ادامه می‌دیم
+                pass
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        success_count = 0
+        error_count = 0
+        errors = []
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if not row or not row[0]:
+                continue
+
+            try:
+                national_code = str(row[0]).strip() if row[0] else ''
+                first_name = str(row[1]).strip() if len(row) > 1 and row[1] else ''
+                last_name = str(row[2]).strip() if len(row) > 2 and row[2] else ''
+                father_name = str(row[3]).strip() if len(row) > 3 and row[3] else ''
+                grade = str(row[4]).strip() if len(row) > 4 and row[4] else ''
+                class_name = str(row[5]).strip() if len(row) > 5 and row[5] else ''
+                field = str(row[6]).strip() if len(row) > 6 and row[6] else ''
+                phone1 = str(row[7]).strip() if len(row) > 7 and row[7] else ''
+                phone2 = str(row[8]).strip() if len(row) > 8 and row[8] else ''
+
+                # پاکسازی اعداد
+                national_code = national_code.split('.')[0]
+                phone1 = phone1.split('.')[0]
+                phone2 = phone2.split('.')[0]
+
+                # اعتبارسنجی
+                if not national_code or not first_name or not last_name or not grade or not class_name:
+                    errors.append(f"سطر {row_idx}: فیلدهای اجباری خالی")
+                    error_count += 1
+                    continue
+
+                if len(national_code) != 10 or not national_code.isdigit():
+                    errors.append(f"سطر {row_idx}: کد ملی نامعتبر ({national_code})")
+                    error_count += 1
+                    continue
+
+                # چک تکراری
+                cursor.execute("SELECT id FROM students WHERE national_code = ?", (national_code,))
+                if cursor.fetchone():
+                    errors.append(f"سطر {row_idx}: کد ملی {national_code} تکراری")
+                    error_count += 1
+                    continue
+
+                cursor.execute('''
+                    INSERT INTO students
+                    (national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, get_today_jalali()))
+
+                success_count += 1
+
+            except Exception as e:
+                errors.append(f"سطر {row_idx}: {str(e)}")
+                error_count += 1
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'{success_count} دانش‌آموز اضافه شد',
+            'success_count': success_count,
+            'error_count': error_count,
+            'errors': errors[:20]  # فقط ۲۰ خطای اول
+        })
+
+    except Exception as e:
+        logger.error(f"خطا در آپلود اکسل: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

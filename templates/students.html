@@ -18,6 +18,22 @@
     </header>
 
     <main>
+
+        <!-- آپلود اکسل -->
+        <section class="card">
+            <h2>آپلود گروهی با اکسل</h2>
+            <p style="color:#666; font-size:13px; margin-bottom:15px;">
+                فایل باید این ستون‌ها رو داشته باشه (به همین ترتیب):
+                <br>
+                <b>کد ملی | نام | نام خانوادگی | نام پدر | پایه | کلاس | رشته | شماره همراه ۱ | شماره همراه ۲</b>
+            </p>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="excelFile" accept=".xlsx" required>
+                <button type="submit" class="btn-primary">آپلود</button>
+            </form>
+            <div id="uploadMessage" style="margin-top:15px;"></div>
+        </section>
+
         <!-- فرم افزودن -->
         <section class="card">
             <h2>افزودن دانش‌آموز جدید</h2>
@@ -243,6 +259,47 @@
         document.getElementById('btnCancelEdit').onclick = () => {
             document.getElementById('editModal').style.display = 'none';
         };
+
+        // ==================== آپلود اکسل ====================
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('excelFile');
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    const msg = document.getElementById('uploadMessage');
+    msg.innerHTML = '⏳ در حال آپلود...';
+
+    try {
+        const res = await fetch('/api/students/upload_excel', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            let html = `<div style="color:green;">✅ ${data.message}</div>`;
+            if (data.error_count > 0) {
+                html += `<div style="color:orange; margin-top:10px;">⚠️ ${data.error_count} خطا:</div>`;
+                html += '<ul style="color:#c33; font-size:12px; max-height:200px; overflow:auto; margin-top:5px;">';
+                data.errors.forEach(err => {
+                    html += `<li>${err}</li>`;
+                });
+                html += '</ul>';
+            }
+            msg.innerHTML = html;
+            fileInput.value = '';
+            loadStudents();
+            loadGrades();
+        } else {
+            msg.innerHTML = `<div style="color:red;">❌ ${data.error}</div>`;
+        }
+    } catch (err) {
+        msg.innerHTML = `<div style="color:red;">❌ خطا در ارتباط: ${err.message}</div>`;
+    }
+});
 
         // ==================== حذف ====================
         async function deleteStudent(id) {
