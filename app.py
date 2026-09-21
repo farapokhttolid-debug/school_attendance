@@ -5,6 +5,8 @@ from core.database import create_default_super_admin, create_indexes
 from config.config import current_config
 from core.logger import get_logger
 from blueprints.database import init_db
+from blueprints import students as students_bp
+from blueprints.decorators import admin_required
 
 logger = get_logger(__name__)
 
@@ -13,9 +15,42 @@ app.config.from_object(current_config)
 app.secret_key = current_config.SECRET_KEY
 
 
-# ========== ثبت Blueprint ها ==========
-# بعداً که فایل‌های جدید رو ساختیم، اینجا اضافه می‌کنیم
+@app.route('/students')
+def students_page():
+    return students_bp.students_page()
 
+
+@app.route('/api/students/list')
+def api_students_list():
+    return students_bp.get_students()
+
+
+@app.route('/api/students/add', methods=['POST'])
+@admin_required
+def api_students_add():
+    return students_bp.add_student()
+
+
+@app.route('/api/students/edit/<int:student_id>', methods=['POST'])
+@admin_required
+def api_students_edit(student_id):
+    return students_bp.edit_student(student_id)
+
+
+@app.route('/api/students/delete/<int:student_id>', methods=['POST'])
+@admin_required
+def api_students_delete(student_id):
+    return students_bp.delete_student(student_id)
+
+
+@app.route('/api/students/grades')
+def api_students_grades():
+    return students_bp.get_grades()
+
+
+@app.route('/api/students/classes')
+def api_students_classes():
+    return students_bp.get_classes()
 
 _first_request_done = False
 

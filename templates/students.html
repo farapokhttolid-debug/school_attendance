@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت دانش‌آموزان</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>مدیریت دانش‌آموزان</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- فرم افزودن -->
+        <section class="card">
+            <h2>افزودن دانش‌آموز جدید</h2>
+            <form id="addForm" class="form-grid">
+                <input type="text" id="national_code" placeholder="کد ملی (۱۰ رقم)" maxlength="10" required>
+                <input type="text" id="first_name" placeholder="نام" required>
+                <input type="text" id="last_name" placeholder="نام خانوادگی" required>
+                <input type="text" id="father_name" placeholder="نام پدر">
+                <input type="text" id="grade" placeholder="پایه (مثلاً هفتم)" required>
+                <input type="text" id="class_name" placeholder="کلاس (مثلاً ۷/۱)" required>
+                <input type="text" id="field" placeholder="رشته (اختیاری)">
+                <input type="text" id="phone1" placeholder="شماره همراه ۱" required>
+                <input type="text" id="phone2" placeholder="شماره همراه ۲ (اختیاری)">
+                <button type="submit" class="btn-primary">افزودن</button>
+            </form>
+            <div id="formMessage"></div>
+        </section>
+
+        <!-- فیلترها -->
+        <section class="card">
+            <h2>لیست دانش‌آموزان</h2>
+            <div class="filters">
+                <select id="filterGrade">
+                    <option value="">همه پایه‌ها</option>
+                </select>
+                <select id="filterClass">
+                    <option value="">همه کلاس‌ها</option>
+                </select>
+                <input type="text" id="filterSearch" placeholder="جستجو (نام، فامیل، کد ملی)">
+                <button id="btnSearch" class="btn-primary">جستجو</button>
+                <button id="btnClear" class="btn-secondary">پاک کردن</button>
+            </div>
+
+            <div id="studentsCount" class="count-info"></div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>کد ملی</th>
+                        <th>نام</th>
+                        <th>نام خانوادگی</th>
+                        <th>نام پدر</th>
+                        <th>پایه</th>
+                        <th>کلاس</th>
+                        <th>رشته</th>
+                        <th>شماره ۱</th>
+                        <th>شماره ۲</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody id="studentsTable">
+                    <tr><td colspan="11" style="text-align:center;">در حال بارگذاری...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- Modal ویرایش -->
+    <div id="editModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>ویرایش دانش‌آموز</h3>
+            <form id="editForm" class="form-grid">
+                <input type="hidden" id="edit_id">
+                <input type="text" id="edit_national_code" placeholder="کد ملی" disabled>
+                <input type="text" id="edit_first_name" placeholder="نام" required>
+                <input type="text" id="edit_last_name" placeholder="نام خانوادگی" required>
+                <input type="text" id="edit_father_name" placeholder="نام پدر">
+                <input type="text" id="edit_grade" placeholder="پایه" required>
+                <input type="text" id="edit_class_name" placeholder="کلاس" required>
+                <input type="text" id="edit_field" placeholder="رشته">
+                <input type="text" id="edit_phone1" placeholder="شماره ۱">
+                <input type="text" id="edit_phone2" placeholder="شماره ۲">
+                <div class="modal-buttons">
+                    <button type="submit" class="btn-primary">ذخیره</button>
+                    <button type="button" id="btnCancelEdit" class="btn-secondary">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ==================== لود پایه‌ها و کلاس‌ها ====================
+        async function loadGrades() {
+            const res = await fetch('/api/students/grades');
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('filterGrade');
+                sel.innerHTML = '<option value="">همه پایه‌ها</option>';
+                data.grades.forEach(g => {
+                    sel.innerHTML += `<option value="${g}">${g}</option>`;
+                });
+            }
+        }
+
+        async function loadClasses(grade = '') {
+            const res = await fetch('/api/students/classes?grade=' + encodeURIComponent(grade));
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('filterClass');
+                sel.innerHTML = '<option value="">همه کلاس‌ها</option>';
+                data.classes.forEach(c => {
+                    sel.innerHTML += `<option value="${c}">${c}</option>`;
+                });
+            }
+        }
+
+        // ==================== لود لیست دانش‌آموزان ====================
+        async function loadStudents() {
+            const grade = document.getElementById('filterGrade').value;
+            const cls = document.getElementById('filterClass').value;
+            const search = document.getElementById('filterSearch').value;
+
+            const url = `/api/students/list?grade=${encodeURIComponent(grade)}&class_name=${encodeURIComponent(cls)}&search=${encodeURIComponent(search)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            const tbody = document.getElementById('studentsTable');
+            document.getElementById('studentsCount').innerText = `تعداد: ${data.count || 0}`;
+
+            if (!data.success || !data.students.length) {
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">دانش‌آموزی یافت نشد</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.students.map((s, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${s.national_code}</td>
+                    <td>${s.first_name}</td>
+                    <td>${s.last_name}</td>
+                    <td>${s.father_name || '-'}</td>
+                    <td>${s.grade}</td>
+                    <td>${s.class_name}</td>
+                    <td>${s.field || '-'}</td>
+                    <td>${s.phone1 || '-'}</td>
+                    <td>${s.phone2 || '-'}</td>
+                    <td>
+                        <button class="btn-edit" onclick='openEdit(${JSON.stringify(s)})'>ویرایش</button>
+                        <button class="btn-delete" onclick="deleteStudent(${s.id})">حذف</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== افزودن ====================
+        document.getElementById('addForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                national_code: document.getElementById('national_code').value.trim(),
+                first_name: document.getElementById('first_name').value.trim(),
+                last_name: document.getElementById('last_name').value.trim(),
+                father_name: document.getElementById('father_name').value.trim(),
+                grade: document.getElementById('grade').value.trim(),
+                class_name: document.getElementById('class_name').value.trim(),
+                field: document.getElementById('field').value.trim(),
+                phone1: document.getElementById('phone1').value.trim(),
+                phone2: document.getElementById('phone2').value.trim()
+            };
+
+            const res = await fetch('/api/students/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const msg = document.getElementById('formMessage');
+
+            if (data.success) {
+                msg.innerHTML = '<span style="color:green;">✅ ' + data.message + '</span>';
+                document.getElementById('addForm').reset();
+                loadStudents();
+                loadGrades();
+            } else {
+                msg.innerHTML = '<span style="color:red;">❌ ' + data.error + '</span>';
+            }
+        });
+
+        // ==================== ویرایش ====================
+        function openEdit(student) {
+            document.getElementById('edit_id').value = student.id;
+            document.getElementById('edit_national_code').value = student.national_code;
+            document.getElementById('edit_first_name').value = student.first_name;
+            document.getElementById('edit_last_name').value = student.last_name;
+            document.getElementById('edit_father_name').value = student.father_name || '';
+            document.getElementById('edit_grade').value = student.grade;
+            document.getElementById('edit_class_name').value = student.class_name;
+            document.getElementById('edit_field').value = student.field || '';
+            document.getElementById('edit_phone1').value = student.phone1 || '';
+            document.getElementById('edit_phone2').value = student.phone2 || '';
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit_id').value;
+            const payload = {
+                first_name: document.getElementById('edit_first_name').value.trim(),
+                last_name: document.getElementById('edit_last_name').value.trim(),
+                father_name: document.getElementById('edit_father_name').value.trim(),
+                grade: document.getElementById('edit_grade').value.trim(),
+                class_name: document.getElementById('edit_class_name').value.trim(),
+                field: document.getElementById('edit_field').value.trim(),
+                phone1: document.getElementById('edit_phone1').value.trim(),
+                phone2: document.getElementById('edit_phone2').value.trim()
+            };
+
+            const res = await fetch(`/api/students/edit/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                document.getElementById('editModal').style.display = 'none';
+                loadStudents();
+            } else {
+                alert('خطا: ' + data.error);
+            }
+        });
+
+        document.getElementById('btnCancelEdit').onclick = () => {
+            document.getElementById('editModal').style.display = 'none';
+        };
+
+        // ==================== حذف ====================
+        async function deleteStudent(id) {
+            if (!confirm('مطمئنی می‌خوای حذف کنی؟')) return;
+            const res = await fetch(`/api/students/delete/${id}`, {method: 'POST'});
+            const data = await res.json();
+            if (data.success) {
+                loadStudents();
+            } else {
+                alert('خطا: ' + data.error);
+            }
+        }
+
+        // ==================== فیلترها ====================
+        document.getElementById('filterGrade').addEventListener('change', (e) => {
+            loadClasses(e.target.value);
+        });
+
+        document.getElementById('btnSearch').onclick = loadStudents;
+
+        document.getElementById('btnClear').onclick = () => {
+            document.getElementById('filterGrade').value = '';
+            document.getElementById('filterClass').value = '';
+            document.getElementById('filterSearch').value = '';
+            loadClasses('');
+            loadStudents();
+        };
+
+        // ==================== شروع ====================
+        loadGrades();
+        loadClasses();
+        loadStudents();
+    </script>
+</body>
+</html>
