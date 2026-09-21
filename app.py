@@ -8,6 +8,7 @@ from blueprints.database import init_db
 from blueprints import students as students_bp
 from blueprints.decorators import admin_required
 from blueprints import attendance as attendance_bp
+from blueprints import reports as reports_bp
 logger = get_logger(__name__)
 
 app = Flask(__name__)
@@ -79,6 +80,21 @@ def api_attendance_save_bulk():
 @app.route('/api/attendance/today')
 def api_attendance_today():
     return attendance_bp.get_today_date()
+
+@app.route('/reports')
+def reports_page():
+    return reports_bp.reports_page()
+
+
+@app.route('/api/reports/data')
+def api_reports_data():
+    return reports_bp.get_report()
+
+
+@app.route('/api/reports/export')
+@admin_required
+def api_reports_export():
+    return reports_bp.export_excel()
 
 _first_request_done = False
 

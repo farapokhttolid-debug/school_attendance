@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>گزارش حضور و غیاب</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>گزارش حضور و غیاب</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- فیلترها -->
+        <section class="card">
+            <h2>فیلترها</h2>
+            <div class="filters">
+                <div>
+                    <label>از تاریخ:</label>
+                    <input type="text" id="dateFrom" placeholder="1404/06/01">
+                </div>
+                <div>
+                    <label>تا تاریخ:</label>
+                    <input type="text" id="dateTo" placeholder="1404/06/30">
+                </div>
+                <select id="filterGrade">
+                    <option value="">همه پایه‌ها</option>
+                </select>
+                <select id="filterClass">
+                    <option value="">همه کلاس‌ها</option>
+                </select>
+                <select id="filterStatus">
+                    <option value="">همه وضعیت‌ها</option>
+                    <option value="present">حاضر</option>
+                    <option value="absent">غایب</option>
+                    <option value="leave">مرخصی</option>
+                    <option value="late">تاخیر</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
+                <button id="btnSearch" class="btn-primary">نمایش گزارش</button>
+                <button id="btnExport" class="btn-success">📥 خروجی اکسل</button>
+                <button id="btnClear" class="btn-secondary">پاک کردن</button>
+            </div>
+        </section>
+
+        <!-- خلاصه آماری -->
+        <section class="card" id="summaryCard" style="display:none;">
+            <h2>خلاصه</h2>
+            <div class="summary-grid">
+                <div class="summary-item present">
+                    <div class="summary-num" id="sumPresent">0</div>
+                    <div class="summary-label">حاضر</div>
+                </div>
+                <div class="summary-item absent">
+                    <div class="summary-num" id="sumAbsent">0</div>
+                    <div class="summary-label">غایب</div>
+                </div>
+                <div class="summary-item leave">
+                    <div class="summary-num" id="sumLeave">0</div>
+                    <div class="summary-label">مرخصی</div>
+                </div>
+                <div class="summary-item late">
+                    <div class="summary-num" id="sumLate">0</div>
+                    <div class="summary-label">تاخیر</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- جدول نتایج -->
+        <section class="card">
+            <div id="countInfo" class="count-info"></div>
+            <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>کد ملی</th>
+                            <th>نام</th>
+                            <th>نام خانوادگی</th>
+                            <th>پایه</th>
+                            <th>کلاس</th>
+                            <th>تاریخ</th>
+                            <th>وضعیت</th>
+                            <th>یادداشت</th>
+                            <th>ثبت‌کننده</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportTable">
+                        <tr><td colspan="10" style="text-align:center;">فیلترها را انتخاب و روی «نمایش گزارش» بزنید</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const statusLabels = {
+            'present': '✅ حاضر',
+            'absent': '❌ غایب',
+            'leave': '📋 مرخصی',
+            'late': '⏰ تاخیر'
+        };
+
+        // ==================== لود فیلترها ====================
+        async function loadGrades() {
+            const res = await fetch('/api/students/grades');
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('filterGrade');
+                sel.innerHTML = '<option value="">همه پایه‌ها</option>';
+                data.grades.forEach(g => {
+                    sel.innerHTML += `<option value="${g}">${g}</option>`;
+                });
+            }
+        }
+
+        async function loadClasses(grade = '') {
+            const res = await fetch('/api/students/classes?grade=' + encodeURIComponent(grade));
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('filterClass');
+                sel.innerHTML = '<option value="">همه کلاس‌ها</option>';
+                data.classes.forEach(c => {
+                    sel.innerHTML += `<option value="${c}">${c}</option>`;
+                });
+            }
+        }
+
+        // ==================== ساخت پارامترها ====================
+        function buildParams() {
+            const params = new URLSearchParams();
+            const df = document.getElementById('dateFrom').value.trim();
+            const dt = document.getElementById('dateTo').value.trim();
+            const g = document.getElementById('filterGrade').value;
+            const c = document.getElementById('filterClass').value;
+            const s = document.getElementById('filterStatus').value;
+
+            if (df) params.append('date_from', df);
+            if (dt) params.append('date_to', dt);
+            if (g) params.append('grade', g);
+            if (c) params.append('class_name', c);
+            if (s) params.append('status', s);
+
+            return params.toString();
+        }
+
+        // ==================== نمایش گزارش ====================
+        async function showReport() {
+            const query = buildParams();
+            const res = await fetch('/api/reports/data?' + query);
+            const data = await res.json();
+
+            const tbody = document.getElementById('reportTable');
+            document.getElementById('countInfo').innerText = `تعداد رکورد: ${data.count || 0}`;
+
+            if (!data.success || !data.records.length) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">رکوردی یافت نشد</td></tr>';
+                document.getElementById('summaryCard').style.display = 'none';
+                return;
+            }
+
+            tbody.innerHTML = data.records.map((r, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${r.national_code}</td>
+                    <td>${r.first_name}</td>
+                    <td>${r.last_name}</td>
+                    <td>${r.grade}</td>
+                    <td>${r.class_name}</td>
+                    <td>${r.attendance_date}</td>
+                    <td>${statusLabels[r.status] || r.status}</td>
+                    <td>${r.note || '-'}</td>
+                    <td>${r.recorded_by || '-'}</td>
+                </tr>
+            `).join('');
+
+            // خلاصه
+            document.getElementById('sumPresent').innerText = data.summary.present;
+            document.getElementById('sumAbsent').innerText = data.summary.absent;
+            document.getElementById('sumLeave').innerText = data.summary.leave;
+            document.getElementById('sumLate').innerText = data.summary.late;
+            document.getElementById('summaryCard').style.display = 'block';
+        }
+
+        // ==================== خروجی اکسل ====================
+        document.getElementById('btnExport').onclick = () => {
+            const query = buildParams();
+            window.location.href = '/api/reports/export?' + query;
+        };
+
+        // ==================== دکمه‌ها ====================
+        document.getElementById('btnSearch').onclick = showReport;
+
+        document.getElementById('btnClear').onclick = () => {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('filterGrade').value = '';
+            document.getElementById('filterClass').value = '';
+            document.getElementById('filterStatus').value = '';
+            loadClasses('');
+            document.getElementById('reportTable').innerHTML = '<tr><td colspan="10" style="text-align:center;">فیلترها را انتخاب و روی «نمایش گزارش» بزنید</td></tr>';
+            document.getElementById('summaryCard').style.display = 'none';
+            document.getElementById('countInfo').innerText = '';
+        };
+
+        document.getElementById('filterGrade').addEventListener('change', (e) => {
+            loadClasses(e.target.value);
+        });
+
+        // ==================== شروع ====================
+        loadGrades();
+        loadClasses();
+    </script>
+</body>
+</html>

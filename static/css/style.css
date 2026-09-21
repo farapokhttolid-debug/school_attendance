@@ -356,3 +356,55 @@ main > p {
     font-size: 13px;
     width: 100%;
 }
+
+.btn-success {
+    background: linear-gradient(135deg, #43a047, #2e7d32);
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.summary-item {
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.summary-item.present { background: #e8f5e9; color: #2e7d32; }
+.summary-item.absent { background: #ffebee; color: #c62828; }
+.summary-item.leave { background: #fff8e1; color: #f57c00; }
+.summary-item.late { background: #f3e5f5; color: #6a1b9a; }
+
+.summary-num {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.summary-label {
+    font-size: 13px;
+}
+
+.filters > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 150px;
+}
+
+.filters label {
+    font-size: 13px;
+    color: #555;
+    white-space: nowrap;
+}
