@@ -10,7 +10,7 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # جدول پرسنل
+    # جدول پرسنل (کاربران سیستم)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS personnel (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,21 +28,6 @@ def init_db():
         )
     ''')
 
-    # جدول حضور و غیاب
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            personnel_id INTEGER NOT NULL,
-            attendance_date TEXT NOT NULL,
-            entry_time TEXT,
-            exit_time TEXT,
-            status TEXT DEFAULT 'present',
-            note TEXT,
-            created_at TEXT,
-            FOREIGN KEY (personnel_id) REFERENCES personnel(id)
-        )
-    ''')
-
     # جدول کاربران سیستم
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -55,6 +40,38 @@ def init_db():
             is_active INTEGER DEFAULT 1,
             created_at TEXT,
             FOREIGN KEY (personnel_id) REFERENCES personnel(id)
+        )
+    ''')
+
+    # جدول دانش‌آموزان
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            national_code TEXT UNIQUE NOT NULL,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            father_name TEXT,
+            grade TEXT NOT NULL,
+            class_name TEXT NOT NULL,
+            field TEXT,
+            phone1 TEXT,
+            phone2 TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT
+        )
+    ''')
+
+    # جدول حضور و غیاب
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER NOT NULL,
+            attendance_date TEXT NOT NULL,
+            status TEXT DEFAULT 'present',
+            note TEXT,
+            recorded_by TEXT,
+            created_at TEXT,
+            FOREIGN KEY (student_id) REFERENCES students(id)
         )
     ''')
 

@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, session, redirect, jsonify
 from datetime import datetime
 import logging
-from core.database import create_default_super_admin
+from core.database import create_default_super_admin, create_indexes
 from config.config import current_config
 from core.logger import get_logger
 from blueprints.database import init_db
@@ -27,6 +27,7 @@ def check_login():
         try:
             init_db()                      
             create_default_super_admin()
+            create_indexes()
         except Exception as e:
             logger.error(f"خطا در راه‌اندازی اولیه: {e}")
 

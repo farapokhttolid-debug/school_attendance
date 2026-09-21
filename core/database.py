@@ -86,19 +86,40 @@ def create_indexes():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # ایندکس‌های personnel
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_personnel_code
         ON personnel(personnel_code)
     ''')
 
+    # ایندکس‌های users
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_users_username
+        ON users(username)
+    ''')
+
+    # ایندکس‌های students
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_students_national_code
+        ON students(national_code)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_students_grade_class
+        ON students(grade, class_name)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_students_active
+        ON students(is_active)
+    ''')
+
+    # ایندکس‌های attendance
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_attendance_date
         ON attendance(attendance_date)
     ''')
-
     cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_attendance_personnel
-        ON attendance(personnel_id, attendance_date)
+        CREATE INDEX IF NOT EXISTS idx_attendance_student
+        ON attendance(student_id, attendance_date)
     ''')
 
     conn.commit()
