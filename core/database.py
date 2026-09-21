@@ -1,6 +1,8 @@
 import sqlite3
+import os
 import logging
 from contextlib import contextmanager
+from datetime import datetime
 from config.config import Config
 
 
@@ -82,86 +84,48 @@ def execute_sql(query, params=None):
 
 
 def create_indexes():
-    """ایندکس‌های پروژه حضور و غیاب مدرسه"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # ایندکس‌های personnel
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_personnel_code
-        ON personnel(personnel_code)
-    ''')
-
-    # ایندکس‌های users
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_users_username
-        ON users(username)
-    ''')
-
-    # ایندکس‌های students
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_students_national_code
-        ON students(national_code)
-    ''')
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_students_grade_class
-        ON students(grade, class_name)
-    ''')
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_students_active
-        ON students(is_active)
-    ''')
-
-    # ایندکس‌های attendance
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_attendance_date
-        ON attendance(attendance_date)
-    ''')
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_attendance_student
-        ON attendance(student_id, attendance_date)
-    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_school ON users(school_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_students_national ON students(national_code)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_students_grade_class ON students(school_id, grade, class_name)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(attendance_date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id, attendance_date)')
 
     conn.commit()
     conn.close()
     print("✅ ایندکس‌های دیتابیس ایجاد شدند")
 
-def create_default_super_admin():
-    """ساخت کاربر Super Admin پیش‌فرض (1000) اگر وجود نداشته باشد"""
-    import os
-    from datetime import datetime
 
+def create_default_super_admin():
+    """ساخت کاربر Super Admin پیش‌فرض (1000) در اولین اجرا"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) as count FROM users")
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE is_super_admin = 1")
     result = cursor.fetchone()
 
     if result['count'] == 0:
-        # رمز از Environment Variable خونده می‌شه (اگه نبود، پیش‌فرض 1000)
         admin_password = os.environ.get('SUPER_ADMIN_PASSWORD', '1000')
 
-        # تاریخ امروز شمسی
         try:
             import jdatetime
             today = jdatetime.date.today().strftime('%Y/%m/%d')
         except Exception:
             today = datetime.now().strftime('%Y-%m-%d')
 
-        cursor.execute("""
-            INSERT INTO personnel (personnel_code, first_name, last_name, phone1, created_at)
-            VALUES ('1000', 'مدیر', 'سیستم', '09120000000', ?)
-        """, (today,))
-        personnel_id = cursor.lastrowid
-
-        cursor.execute("""
-            INSERT INTO users (username, password, personnel_id, is_admin, is_super_admin, is_active, created_at)
-            VALUES ('1000', ?, ?, 1, 1, 1, ?)
-        """, (admin_password, personnel_id, today))
+        # Super Admin: school_id = NULL (مالک کل سیستم)
+        cursor.execute('''
+            INSERT INTO users (school_id, username, password, is_admin, is_super_admin, is_active, created_at)
+            VALUES (NULL, '1000', ?, 1, 1, 1, ?)
+        ''', (admin_password, today))
 
         conn.commit()
         print("✅ کاربر Super Admin پیش‌فرض ساخته شد (1000)")
     else:
-        print("ℹ️ کاربران قبلاً وجود دارند، Super Admin ساخته نشد")
+        print("ℹ️ Super Admin از قبل وجود دارد")
 
     conn.close()

@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ورود به سیستم - {{ config.APP_NAME }}</title>
+    <title>ورود به سیستم</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="login-container">
         <div class="login-box">
-            <h1>سیستم حضور و غیاب مدرسه</h1>
+            <h1>سیستم حضور و غیاب</h1>
             <h2>ورود به سیستم</h2>
 
             {% if error %}
@@ -17,9 +17,15 @@
             {% endif %}
 
             <form method="POST" action="/login">
+                <div class="form-group" id="schoolSelectGroup">
+                    <label>انتخاب مدرسه</label>
+                    <select name="school_id" id="school_id">
+                        <option value="">-- لطفاً انتخاب کنید --</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>نام کاربری (۴ رقم)</label>
-                    <input type="text" name="username" maxlength="4" pattern="\d{4}" required autofocus>
+                    <input type="text" name="username" id="username" maxlength="4" pattern="\d{4}" required autofocus>
                 </div>
                 <div class="form-group">
                     <label>رمز عبور (۴ رقم)</label>
@@ -27,7 +33,46 @@
                 </div>
                 <button type="submit" class="btn-login">ورود</button>
             </form>
+
+            <div style="margin-top:15px; font-size:12px; color:#888;">
+                مدیر کل سیستم: نام کاربری <b>1000</b>
+            </div>
         </div>
     </div>
+
+    <script>
+        // لود مدارس
+        async function loadSchools() {
+            try {
+                const res = await fetch('/api/schools_list');
+                const data = await res.json();
+                if (data.success) {
+                    const sel = document.getElementById('school_id');
+                    if (!data.schools.length) {
+                        sel.innerHTML = '<option value="">هنوز مدرسه‌ای ثبت نشده</option>';
+                        return;
+                    }
+                    sel.innerHTML = '<option value="">-- انتخاب کنید --</option>';
+                    data.schools.forEach(s => {
+                        sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // اگه نام کاربری 1000 بود، انتخاب مدرسه رو مخفی کن
+        document.getElementById('username').addEventListener('input', (e) => {
+            const group = document.getElementById('schoolSelectGroup');
+            if (e.target.value === '1000') {
+                group.style.display = 'none';
+            } else {
+                group.style.display = 'block';
+            }
+        });
+
+        loadSchools();
+    </script>
 </body>
 </html>

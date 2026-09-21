@@ -8,15 +8,23 @@ import io
 logger = get_logger(__name__)
 
 
+def get_current_school_id():
+    return session.get('school_id')
+
+
 def reports_page():
     return render_template('reports.html')
 
 
 # =====================================================
-# API: دریافت گزارش با فیلتر
+# گزارش
 # =====================================================
 def get_report():
     try:
+        school_id = get_current_school_id()
+        if not school_id:
+            return jsonify({'success': False, 'error': 'مدرسه انتخاب نشده'})
+
         date_from = request.args.get('date_from', '').strip()
         date_to = request.args.get('date_to', '').strip()
         grade = request.args.get('grade', '').strip()
@@ -30,9 +38,9 @@ def get_report():
                 a.attendance_date, a.status, a.note, a.recorded_by
             FROM attendance a
             JOIN students s ON a.student_id = s.id
-            WHERE 1=1
+            WHERE s.school_id = ?
         '''
-        params = []
+        params = [school_id]
 
         if date_from:
             query += " AND a.attendance_date >= ?"
@@ -58,7 +66,6 @@ def get_report():
         rows = cursor.fetchall()
         conn.close()
 
-        # شمارش بر اساس وضعیت
         summary = {'present': 0, 'absent': 0, 'leave': 0, 'late': 0}
         records = []
         for r in rows:
@@ -73,20 +80,21 @@ def get_report():
             'count': len(records),
             'summary': summary
         })
-
     except Exception as e:
         logger.error(f"خطا در گزارش: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =====================================================
-# API: خروجی اکسل
+# خروجی اکسل
 # =====================================================
 @admin_required
 def export_excel():
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill
+
+        school_id = get_current_school_id()
 
         date_from = request.args.get('date_from', '').strip()
         date_to = request.args.get('date_to', '').strip()
@@ -100,9 +108,9 @@ def export_excel():
                 a.attendance_date, a.status, a.note, a.recorded_by
             FROM attendance a
             JOIN students s ON a.student_id = s.id
-            WHERE 1=1
+            WHERE s.school_id = ?
         '''
-        params = []
+        params = [school_id]
 
         if date_from:
             query += " AND a.attendance_date >= ?"
@@ -123,19 +131,21 @@ def export_excel():
         cursor = conn.cursor()
         cursor.execute(query, params)
         rows = cursor.fetchall()
+
+        # نام مدرسه برای نام فایل
+        cursor.execute("SELECT name FROM schools WHERE id = ?", (school_id,))
+        school_row = cursor.fetchone()
+        school_name = school_row['name'] if school_row else 'school'
         conn.close()
 
-        # ساخت فایل اکسل
         wb = Workbook()
         ws = wb.active
         ws.title = "گزارش حضور و غیاب"
         ws.sheet_view.rightToLeft = True
 
-        # هدر
         headers = ['کد ملی', 'نام', 'نام خانوادگی', 'پایه', 'کلاس', 'تاریخ', 'وضعیت', 'یادداشت', 'ثبت‌کننده']
         ws.append(headers)
 
-        # استایل هدر
         header_font = Font(bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="764ba2", end_color="764ba2", fill_type="solid")
         for cell in ws[1]:
@@ -143,7 +153,6 @@ def export_excel():
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # ترجمه وضعیت‌ها
         status_map = {
             'present': 'حاضر',
             'absent': 'غایب',
@@ -151,7 +160,6 @@ def export_excel():
             'late': 'تاخیر'
         }
 
-        # داده‌ها
         for row in rows:
             ws.append([
                 row['national_code'],
@@ -165,17 +173,15 @@ def export_excel():
                 row['recorded_by'] or ''
             ])
 
-        # تنظیم عرض ستون‌ها
         widths = [15, 15, 15, 10, 10, 15, 12, 20, 15]
         for i, w in enumerate(widths, start=1):
             ws.column_dimensions[chr(64 + i)].width = w
 
-        # ذخیره در حافظه
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
 
-        filename = f"attendance_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"report_{school_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
         return send_file(
             output,
@@ -183,7 +189,6 @@ def export_excel():
             as_attachment=True,
             download_name=filename
         )
-
     except Exception as e:
         logger.error(f"خطا در خروجی اکسل: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

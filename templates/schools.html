@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت مدارس</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>مدیریت مدارس (پنل مدیر کل)</h1>
+            <div class="user-info">
+                <span>{{ session.username }}</span>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- فرم ساخت مدرسه -->
+        <section class="card">
+            <h2>ساخت مدرسه جدید</h2>
+            <form id="addSchoolForm" class="form-grid">
+                <input type="text" id="name" placeholder="نام مدرسه" required>
+                <input type="text" id="code" placeholder="کد مدرسه (انگلیسی، مثل school1)" required>
+                <input type="text" id="address" placeholder="آدرس (اختیاری)">
+                <input type="text" id="phone" placeholder="تلفن (اختیاری)">
+                <button type="submit" class="btn-primary">ساخت مدرسه</button>
+            </form>
+            <div id="formMessage" style="margin-top:10px;"></div>
+        </section>
+
+        <!-- لیست مدارس -->
+        <section class="card">
+            <h2>لیست مدارس</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>نام</th>
+                        <th>کد</th>
+                        <th>آدرس</th>
+                        <th>تلفن</th>
+                        <th>دانش‌آموزان</th>
+                        <th>کاربران</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody id="schoolsTable">
+                    <tr><td colspan="9" style="text-align:center;">در حال بارگذاری...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        async function loadSchools() {
+            const res = await fetch('/api/schools/list');
+            const data = await res.json();
+            const tbody = document.getElementById('schoolsTable');
+
+            if (!data.success || !data.schools.length) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">هنوز مدرسه‌ای ساخته نشده</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.schools.map((s, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${s.name}</td>
+                    <td>${s.code}</td>
+                    <td>${s.address || '-'}</td>
+                    <td>${s.phone || '-'}</td>
+                    <td>${s.student_count}</td>
+                    <td>${s.user_count}</td>
+                    <td>${s.is_active ? '✅ فعال' : '⛔ غیرفعال'}</td>
+                    <td>
+                        <button class="btn-primary" onclick="enterSchool(${s.id})">ورود</button>
+                        <button class="btn-secondary" onclick="toggleSchool(${s.id})">${s.is_active ? 'غیرفعال' : 'فعال'}</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('addSchoolForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('name').value.trim(),
+                code: document.getElementById('code').value.trim(),
+                address: document.getElementById('address').value.trim(),
+                phone: document.getElementById('phone').value.trim()
+            };
+
+            const res = await fetch('/api/schools/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const msg = document.getElementById('formMessage');
+
+            if (data.success) {
+                msg.innerHTML = '<span style="color:green;">✅ ' + data.message + '</span>';
+                document.getElementById('addSchoolForm').reset();
+                loadSchools();
+            } else {
+                msg.innerHTML = '<span style="color:red;">❌ ' + data.error + '</span>';
+            }
+        });
+
+        async function enterSchool(id) {
+            const res = await fetch(`/api/schools/enter/${id}`, {method: 'POST'});
+            const data = await res.json();
+            if (data.success) {
+                window.location.href = '/';
+            } else {
+                alert('خطا: ' + data.error);
+            }
+        }
+
+        async function toggleSchool(id) {
+            if (!confirm('مطمئنی؟')) return;
+            const res = await fetch(`/api/schools/toggle/${id}`, {method: 'POST'});
+            const data = await res.json();
+            if (data.success) {
+                loadSchools();
+            } else {
+                alert('خطا: ' + data.error);
+            }
+        }
+
+        loadSchools();
+    </script>
+</body>
+</html>

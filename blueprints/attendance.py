@@ -1,7 +1,6 @@
 from flask import render_template, request, jsonify, session
 from core.database import get_db_connection
 from core.logger import get_logger
-from blueprints.decorators import admin_required
 from datetime import datetime
 
 logger = get_logger(__name__)
@@ -15,19 +14,27 @@ def get_today_jalali():
         return datetime.now().strftime('%Y-%m-%d')
 
 
+def get_current_school_id():
+    return session.get('school_id')
+
+
 def attendance_page():
     return render_template('attendance.html')
 
+
 def get_today_date():
-    """برگرداندن تاریخ امروز شمسی"""
     return jsonify({'date': get_today_jalali()})
 
 
 # =====================================================
-# API: دریافت لیست دانش‌آموزان + وضعیت حضور امروز
+# لیست حضور
 # =====================================================
 def get_attendance_list():
     try:
+        school_id = get_current_school_id()
+        if not school_id:
+            return jsonify({'success': False, 'error': 'مدرسه انتخاب نشده'})
+
         grade = request.args.get('grade', '').strip()
         class_name = request.args.get('class_name', '').strip()
         search = request.args.get('search', '').strip()
@@ -42,9 +49,9 @@ def get_attendance_list():
             FROM students s
             LEFT JOIN attendance a 
                 ON s.id = a.student_id AND a.attendance_date = ?
-            WHERE s.is_active = 1
+            WHERE s.is_active = 1 AND s.school_id = ?
         '''
-        params = [date]
+        params = [date, school_id]
 
         if grade:
             query += " AND s.grade = ?"
@@ -77,10 +84,11 @@ def get_attendance_list():
 
 
 # =====================================================
-# API: ذخیره وضعیت حضور یک دانش‌آموز
+# ذخیره یک رکورد
 # =====================================================
 def save_attendance():
     try:
+        school_id = get_current_school_id()
         data = request.get_json()
         student_id = data.get('student_id')
         status = data.get('status', 'present')
@@ -96,7 +104,12 @@ def save_attendance():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # چک وجود
+        # چک کن دانش‌آموز مال همین مدرسه باشه
+        cursor.execute("SELECT id FROM students WHERE id = ? AND school_id = ?", (student_id, school_id))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'دانش‌آموز یافت نشد'})
+
         cursor.execute(
             "SELECT id FROM attendance WHERE student_id = ? AND attendance_date = ?",
             (student_id, date)
@@ -118,7 +131,6 @@ def save_attendance():
 
         conn.commit()
         conn.close()
-
         return jsonify({'success': True, 'message': 'ذخیره شد'})
     except Exception as e:
         logger.error(f"خطا در ذخیره حضور: {e}")
@@ -126,10 +138,11 @@ def save_attendance():
 
 
 # =====================================================
-# API: ذخیره گروهی (چندتا با هم)
+# ذخیره گروهی
 # =====================================================
 def save_attendance_bulk():
     try:
+        school_id = get_current_school_id()
         data = request.get_json()
         items = data.get('items', [])
         date = data.get('date', '').strip() or get_today_jalali()
@@ -141,12 +154,17 @@ def save_attendance_bulk():
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # لیست دانش‌آموزان این مدرسه
+        cursor.execute("SELECT id FROM students WHERE school_id = ? AND is_active = 1", (school_id,))
+        valid_ids = {row['id'] for row in cursor.fetchall()}
+
+        saved = 0
         for item in items:
             student_id = item.get('student_id')
             status = item.get('status', 'present')
             note = item.get('note', '').strip()
 
-            if not student_id:
+            if not student_id or student_id not in valid_ids:
                 continue
             if status not in ['present', 'absent', 'leave', 'late']:
                 continue
@@ -167,11 +185,11 @@ def save_attendance_bulk():
                     INSERT INTO attendance (student_id, attendance_date, status, note, recorded_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ''', (student_id, date, status, note, recorded_by, datetime.now().isoformat()))
+            saved += 1
 
         conn.commit()
         conn.close()
-
-        return jsonify({'success': True, 'message': f'{len(items)} رکورد ذخیره شد'})
+        return jsonify({'success': True, 'message': f'{saved} رکورد ذخیره شد'})
     except Exception as e:
         logger.error(f"خطا در ذخیره گروهی: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify, session, redirect
+from flask import render_template, request, jsonify, session
 from core.database import get_db_connection
 from core.logger import get_logger
 from blueprints.decorators import admin_required
@@ -8,7 +8,6 @@ logger = get_logger(__name__)
 
 
 def get_today_jalali():
-    """تاریخ امروز شمسی"""
     try:
         import jdatetime
         return jdatetime.date.today().strftime('%Y/%m/%d')
@@ -16,24 +15,30 @@ def get_today_jalali():
         return datetime.now().strftime('%Y-%m-%d')
 
 
-# =====================================================
-# صفحه اصلی مدیریت دانش‌آموزان
-# =====================================================
+def get_current_school_id():
+    """school_id کاربر فعلی رو برمی‌گردونه"""
+    return session.get('school_id')
+
+
 def students_page():
     return render_template('students.html')
 
 
 # =====================================================
-# API: لیست دانش‌آموزان با فیلتر
+# لیست دانش‌آموزان
 # =====================================================
 def get_students():
     try:
+        school_id = get_current_school_id()
+        if not school_id:
+            return jsonify({'success': False, 'error': 'مدرسه انتخاب نشده'})
+
         grade = request.args.get('grade', '').strip()
         class_name = request.args.get('class_name', '').strip()
         search = request.args.get('search', '').strip()
 
-        query = "SELECT * FROM students WHERE is_active = 1"
-        params = []
+        query = "SELECT * FROM students WHERE is_active = 1 AND school_id = ?"
+        params = [school_id]
 
         if grade:
             query += " AND grade = ?"
@@ -59,22 +64,27 @@ def get_students():
         rows = cursor.fetchall()
         conn.close()
 
-        students = [dict(row) for row in rows]
-        return jsonify({'success': True, 'students': students, 'count': len(students)})
-
+        return jsonify({
+            'success': True,
+            'students': [dict(r) for r in rows],
+            'count': len(rows)
+        })
     except Exception as e:
-        logger.error(f"خطا در دریافت دانش‌آموزان: {e}")
+        logger.error(f"خطا در لیست دانش‌آموزان: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =====================================================
-# API: افزودن دانش‌آموز
+# افزودن دانش‌آموز
 # =====================================================
 @admin_required
 def add_student():
     try:
-        data = request.get_json()
+        school_id = get_current_school_id()
+        if not school_id:
+            return jsonify({'success': False, 'error': 'مدرسه انتخاب نشده'})
 
+        data = request.get_json()
         national_code = data.get('national_code', '').strip()
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
@@ -85,7 +95,6 @@ def add_student():
         phone1 = data.get('phone1', '').strip()
         phone2 = data.get('phone2', '').strip()
 
-        # اعتبارسنجی
         if not national_code or not first_name or not last_name or not grade or not class_name:
             return jsonify({'success': False, 'error': 'فیلدهای اجباری را پر کنید'})
 
@@ -95,56 +104,53 @@ def add_student():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # چک تکراری نبودن
-        cursor.execute("SELECT id FROM students WHERE national_code = ?", (national_code,))
+        cursor.execute(
+            "SELECT id FROM students WHERE national_code = ? AND school_id = ?",
+            (national_code, school_id)
+        )
         if cursor.fetchone():
             conn.close()
-            return jsonify({'success': False, 'error': 'این کد ملی قبلاً ثبت شده است'})
+            return jsonify({'success': False, 'error': 'این کد ملی قبلاً در این مدرسه ثبت شده'})
 
         cursor.execute('''
             INSERT INTO students
-            (national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, get_today_jalali()))
+            (school_id, national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (school_id, national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, get_today_jalali()))
 
         conn.commit()
         student_id = cursor.lastrowid
         conn.close()
 
         return jsonify({'success': True, 'message': 'دانش‌آموز اضافه شد', 'id': student_id})
-
     except Exception as e:
         logger.error(f"خطا در افزودن دانش‌آموز: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =====================================================
-# API: ویرایش دانش‌آموز
+# ویرایش دانش‌آموز
 # =====================================================
 @admin_required
 def edit_student(student_id):
     try:
+        school_id = get_current_school_id()
         data = request.get_json()
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM students WHERE id = ?", (student_id,))
+        cursor.execute("SELECT id FROM students WHERE id = ? AND school_id = ?", (student_id, school_id))
         if not cursor.fetchone():
             conn.close()
             return jsonify({'success': False, 'error': 'دانش‌آموز یافت نشد'})
 
         cursor.execute('''
             UPDATE students SET
-                first_name = ?,
-                last_name = ?,
-                father_name = ?,
-                grade = ?,
-                class_name = ?,
-                field = ?,
-                phone1 = ?,
-                phone2 = ?
-            WHERE id = ?
+                first_name = ?, last_name = ?, father_name = ?,
+                grade = ?, class_name = ?, field = ?,
+                phone1 = ?, phone2 = ?
+            WHERE id = ? AND school_id = ?
         ''', (
             data.get('first_name', '').strip(),
             data.get('last_name', '').strip(),
@@ -154,28 +160,29 @@ def edit_student(student_id):
             data.get('field', '').strip(),
             data.get('phone1', '').strip(),
             data.get('phone2', '').strip(),
-            student_id
+            student_id, school_id
         ))
 
         conn.commit()
         conn.close()
-
         return jsonify({'success': True, 'message': 'تغییرات ذخیره شد'})
-
     except Exception as e:
-        logger.error(f"خطا در ویرایش: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =====================================================
-# API: حذف دانش‌آموز (غیرفعال کردن)
+# حذف دانش‌آموز
 # =====================================================
 @admin_required
 def delete_student(student_id):
     try:
+        school_id = get_current_school_id()
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE students SET is_active = 0 WHERE id = ?", (student_id,))
+        cursor.execute(
+            "UPDATE students SET is_active = 0 WHERE id = ? AND school_id = ?",
+            (student_id, school_id)
+        )
         conn.commit()
         conn.close()
         return jsonify({'success': True, 'message': 'دانش‌آموز حذف شد'})
@@ -184,13 +191,17 @@ def delete_student(student_id):
 
 
 # =====================================================
-# API: لیست پایه‌ها (برای فیلتر)
+# لیست پایه‌ها
 # =====================================================
 def get_grades():
     try:
+        school_id = get_current_school_id()
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT grade FROM students WHERE is_active = 1 ORDER BY grade")
+        cursor.execute(
+            "SELECT DISTINCT grade FROM students WHERE is_active = 1 AND school_id = ? ORDER BY grade",
+            (school_id,)
+        )
         rows = cursor.fetchall()
         conn.close()
         return jsonify({'success': True, 'grades': [row['grade'] for row in rows]})
@@ -199,17 +210,24 @@ def get_grades():
 
 
 # =====================================================
-# API: لیست کلاس‌ها (برای فیلتر)
+# لیست کلاس‌ها
 # =====================================================
 def get_classes():
     try:
+        school_id = get_current_school_id()
         grade = request.args.get('grade', '').strip()
         conn = get_db_connection()
         cursor = conn.cursor()
         if grade:
-            cursor.execute("SELECT DISTINCT class_name FROM students WHERE is_active = 1 AND grade = ? ORDER BY class_name", (grade,))
+            cursor.execute(
+                "SELECT DISTINCT class_name FROM students WHERE is_active = 1 AND school_id = ? AND grade = ? ORDER BY class_name",
+                (school_id, grade)
+            )
         else:
-            cursor.execute("SELECT DISTINCT class_name FROM students WHERE is_active = 1 ORDER BY class_name")
+            cursor.execute(
+                "SELECT DISTINCT class_name FROM students WHERE is_active = 1 AND school_id = ? ORDER BY class_name",
+                (school_id,)
+            )
         rows = cursor.fetchall()
         conn.close()
         return jsonify({'success': True, 'classes': [row['class_name'] for row in rows]})
@@ -217,11 +235,16 @@ def get_classes():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# =====================================================
+# آپلود اکسل
+# =====================================================
 @admin_required
 def upload_excel():
     try:
         from openpyxl import load_workbook
         import io
+
+        school_id = get_current_school_id()
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'فایلی انتخاب نشده'})
@@ -233,20 +256,9 @@ def upload_excel():
         if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
             return jsonify({'success': False, 'error': 'فقط فایل xlsx پشتیبانی می‌شود'})
 
-        # خوندن فایل در حافظه (نه روی دیسک)
         file_bytes = file.read()
         wb = load_workbook(io.BytesIO(file_bytes), data_only=True)
         ws = wb.active
-
-        # چک کردن هدر
-        header = [str(cell.value).strip() if cell.value else '' for cell in ws[1]]
-        expected = ['کد ملی', 'نام', 'نام خانوادگی', 'نام پدر', 'پایه', 'کلاس', 'رشته', 'شماره همراه ۱', 'شماره همراه ۲']
-
-        # اگه ستون‌ها جابجا هستن، اینجا خطا می‌دیم
-        for i, exp in enumerate(expected):
-            if i < len(header) and header[i] and header[i] != exp:
-                # فقط هشدار، ادامه می‌دیم
-                pass
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -270,24 +282,24 @@ def upload_excel():
                 phone1 = str(row[7]).strip() if len(row) > 7 and row[7] else ''
                 phone2 = str(row[8]).strip() if len(row) > 8 and row[8] else ''
 
-                # پاکسازی اعداد
                 national_code = national_code.split('.')[0]
                 phone1 = phone1.split('.')[0]
                 phone2 = phone2.split('.')[0]
 
-                # اعتبارسنجی
                 if not national_code or not first_name or not last_name or not grade or not class_name:
                     errors.append(f"سطر {row_idx}: فیلدهای اجباری خالی")
                     error_count += 1
                     continue
 
                 if len(national_code) != 10 or not national_code.isdigit():
-                    errors.append(f"سطر {row_idx}: کد ملی نامعتبر ({national_code})")
+                    errors.append(f"سطر {row_idx}: کد ملی نامعتبر")
                     error_count += 1
                     continue
 
-                # چک تکراری
-                cursor.execute("SELECT id FROM students WHERE national_code = ?", (national_code,))
+                cursor.execute(
+                    "SELECT id FROM students WHERE national_code = ? AND school_id = ?",
+                    (national_code, school_id)
+                )
                 if cursor.fetchone():
                     errors.append(f"سطر {row_idx}: کد ملی {national_code} تکراری")
                     error_count += 1
@@ -295,12 +307,11 @@ def upload_excel():
 
                 cursor.execute('''
                     INSERT INTO students
-                    (national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, get_today_jalali()))
+                    (school_id, national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (school_id, national_code, first_name, last_name, father_name, grade, class_name, field, phone1, phone2, get_today_jalali()))
 
                 success_count += 1
-
             except Exception as e:
                 errors.append(f"سطر {row_idx}: {str(e)}")
                 error_count += 1
@@ -313,9 +324,8 @@ def upload_excel():
             'message': f'{success_count} دانش‌آموز اضافه شد',
             'success_count': success_count,
             'error_count': error_count,
-            'errors': errors[:20]  # فقط ۲۰ خطای اول
+            'errors': errors[:20]
         })
-
     except Exception as e:
         logger.error(f"خطا در آپلود اکسل: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -9,8 +9,11 @@
 <body>
     <header>
         <div class="header-container">
-            <h1>{{ config.APP_NAME }}</h1>
+            <h1>{{ session.school_name or config.APP_NAME }}</h1>
             <div class="user-info">
+                {% if session.is_super_admin and session.school_id %}
+                <button id="btnExitSchool" class="btn-secondary" style="font-size:13px;">خروج از مدرسه</button>
+                {% endif %}
                 <span>{{ session.username }}</span>
                 <a href="/logout" class="btn-logout">خروج</a>
             </div>
@@ -25,10 +28,23 @@
             <a href="/attendance" class="menu-item">ثبت حضور و غیاب</a>
             <a href="/students" class="menu-item">مدیریت دانش‌آموزان</a>
             <a href="/reports" class="menu-item">گزارش‌ها</a>
-            {% if session.is_admin %}
-            <a href="#" class="menu-item">تنظیمات</a>
+            {% if session.is_super_admin %}
+            <a href="/schools" class="menu-item">مدیریت مدارس</a>
             {% endif %}
         </div>
     </main>
+
+    <script>
+        const btnExit = document.getElementById('btnExitSchool');
+        if (btnExit) {
+            btnExit.onclick = async () => {
+                const res = await fetch('/api/schools/exit', {method: 'POST'});
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/schools';
+                }
+            };
+        }
+    </script>
 </body>
 </html>
