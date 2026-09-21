@@ -18,6 +18,10 @@ def get_today_jalali():
 def attendance_page():
     return render_template('attendance.html')
 
+def get_today_date():
+    """برگرداندن تاریخ امروز شمسی"""
+    return jsonify({'date': get_today_jalali()})
+
 
 # =====================================================
 # API: دریافت لیست دانش‌آموزان + وضعیت حضور امروز

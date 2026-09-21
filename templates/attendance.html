@@ -80,7 +80,7 @@
 
         // ==================== تاریخ امروز ====================
         function setTodayDate() {
-            fetch('/api/get_jalali_date')
+            fetch('/api/attendance/today')
                 .then(r => r.json())
                 .then(d => {
                     document.getElementById('attendanceDate').value = d.date;

@@ -76,6 +76,10 @@ def api_attendance_save():
 def api_attendance_save_bulk():
     return attendance_bp.save_attendance_bulk()
 
+@app.route('/api/attendance/today')
+def api_attendance_today():
+    return attendance_bp.get_today_date()
+
 _first_request_done = False
 
 @app.before_request
