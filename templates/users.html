@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت کاربران</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>مدیریت کاربران</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- فرم افزودن -->
+        <section class="card">
+            <h2>افزودن کاربر جدید</h2>
+            <form id="addUserForm" class="form-grid">
+                <input type="text" id="username" placeholder="نام کاربری (۴ رقم)" maxlength="4" pattern="\d{4}" required>
+                <input type="text" id="password" placeholder="رمز عبور (۴ رقم)" maxlength="4" pattern="\d{4}" required>
+
+                <select id="schoolSelect" style="display:none;">
+                    <option value="">-- انتخاب مدرسه --</option>
+                </select>
+
+                <select id="role" required>
+                    <option value="user">کاربر عادی</option>
+                    <option value="admin">ادمین مدرسه</option>
+                </select>
+
+                <button type="submit" class="btn-primary">ساخت کاربر</button>
+            </form>
+            <div id="formMessage" style="margin-top:10px;"></div>
+        </section>
+
+        <!-- لیست کاربران -->
+        <section class="card">
+            <h2>لیست کاربران</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>نام کاربری</th>
+                        <th>مدرسه</th>
+                        <th>نقش</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTable">
+                    <tr><td colspan="6" style="text-align:center;">در حال بارگذاری...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        const isSuperAdmin = {{ 'true' if session.is_super_admin else 'false' }};
+        const hasSchool = {{ 'true' if session.school_id else 'false' }};
+
+        // اگه 1000 در حالت مدیریت کل: انتخاب مدرسه نشون داده بشه
+        if (isSuperAdmin && !hasSchool) {
+            document.getElementById('schoolSelect').style.display = 'block';
+            loadSchools();
+        }
+
+        async function loadSchools() {
+            const res = await fetch('/api/users/schools');
+            const data = await res.json();
+            if (data.success) {
+                const sel = document.getElementById('schoolSelect');
+                sel.innerHTML = '<option value="">-- انتخاب مدرسه --</option>';
+                data.schools.forEach(s => {
+                    sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+                });
+            }
+        }
+
+        async function loadUsers() {
+            const res = await fetch('/api/users/list');
+            const data = await res.json();
+            const tbody = document.getElementById('usersTable');
+
+            if (!data.success || !data.users.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">کاربری یافت نشد</td></tr>';
+                return;
+            }
+
+            const roleLabels = {
+                'super_admin': '👑 مدیر کل',
+                'admin': '🔑 ادمین مدرسه',
+                'user': '👤 کاربر عادی'
+            };
+
+            tbody.innerHTML = data.users.map((u, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${u.username}</td>
+                    <td>${u.school_name || '—'}</td>
+                    <td>${roleLabels[u.role] || u.role}</td>
+                    <td>${u.is_active ? '✅ فعال' : '⛔ غیرفعال'}</td>
+                    <td>
+                        ${u.role === 'super_admin' ? '—' : `
+                            <button class="btn-secondary" onclick="changePassword(${u.id})">تغییر رمز</button>
+                            <button class="btn-delete" onclick="deleteUser(${u.id})">حذف</button>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                username: document.getElementById('username').value.trim(),
+                password: document.getElementById('password').value.trim(),
+                role: document.getElementById('role').value
+            };
+
+            if (isSuperAdmin && !hasSchool) {
+                payload.school_id = document.getElementById('schoolSelect').value;
+            }
+
+            const res = await fetch('/api/users/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const msg = document.getElementById('formMessage');
+
+            if (data.success) {
+                msg.innerHTML = '<span style="color:green;">✅ ' + data.message + '</span>';
+                document.getElementById('addUserForm').reset();
+                loadUsers();
+            } else {
+                msg.innerHTML = '<span style="color:red;">❌ ' + data.error + '</span>';
+            }
+        });
+
+        async function deleteUser(id) {
+            if (!confirm('مطمئنی می‌خوای این کاربر رو حذف کنی؟')) return;
+            const res = await fetch(`/api/users/delete/${id}`, {method: 'POST'});
+            const data = await res.json();
+            if (data.success) {
+                loadUsers();
+            } else {
+                alert('خطا: ' + data.error);
+            }
+        }
+
+        async function changePassword(id) {
+            const newPass = prompt('رمز جدید (۴ رقم):');
+            if (!newPass) return;
+            if (!/^\d{4}$/.test(newPass)) return alert('رمز باید ۴ رقم عددی باشد');
+
+            const res = await fetch(`/api/users/change_password/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({new_password: newPass})
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ ' + data.message);
+            } else {
+                alert('❌ ' + data.error);
+            }
+        }
+
+        loadUsers();
+    </script>
+</body>
+</html>

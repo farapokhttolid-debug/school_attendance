@@ -13,6 +13,7 @@ from blueprints import schools as schools_bp
 from blueprints import students as students_bp
 from blueprints import attendance as attendance_bp
 from blueprints import reports as reports_bp
+from blueprints import users as users_bp
 
 logger = get_logger(__name__)
 
@@ -142,6 +143,43 @@ def api_schools_enter(school_id):
 @super_admin_required
 def api_schools_exit():
     return schools_bp.exit_school()
+
+# =====================================================
+# مدیریت کاربران
+# =====================================================
+@app.route('/users')
+@admin_required
+def users_page():
+    return users_bp.users_page()
+
+
+@app.route('/api/users/list')
+@admin_required
+def api_users_list():
+    return users_bp.list_users()
+
+
+@app.route('/api/users/add', methods=['POST'])
+@admin_required
+def api_users_add():
+    return users_bp.add_user()
+
+
+@app.route('/api/users/delete/<int:user_id>', methods=['POST'])
+@admin_required
+def api_users_delete(user_id):
+    return users_bp.delete_user(user_id)
+
+
+@app.route('/api/users/change_password/<int:user_id>', methods=['POST'])
+@admin_required
+def api_users_change_password(user_id):
+    return users_bp.change_user_password(user_id)
+
+
+@app.route('/api/users/schools')
+def api_users_schools():
+    return users_bp.list_schools_for_user()
 
 
 # =====================================================
