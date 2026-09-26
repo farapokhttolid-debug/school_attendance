@@ -3,6 +3,7 @@ from core.database import get_db_connection
 from core.logger import get_logger
 from blueprints.decorators import admin_required
 from datetime import datetime
+import re
 
 logger = get_logger(__name__)
 
@@ -120,7 +121,7 @@ def get_grades_from_settings():
         conn.close()
 
         if row and row['value']:
-            grades = [g.strip() for g in row['value'].split(',') if g.strip()]
+            grades = [g.strip() for g in re.split(r'[،,]', row['value']) if g.strip()]
         else:
             grades = []
 
