@@ -20,17 +20,20 @@
                 <div class="form-group" id="schoolSelectGroup">
                     <label>انتخاب مدرسه</label>
                     <select name="school_id" id="school_id">
-                        <option value="">-- لطفاً انتخاب کنید --</option>
+                        <option value="">-- در حال بارگذاری --</option>
                     </select>
                 </div>
+
                 <div class="form-group">
                     <label>نام کاربری (۴ رقم)</label>
                     <input type="text" name="username" id="username" maxlength="4" pattern="\d{4}" required autofocus>
                 </div>
+
                 <div class="form-group">
                     <label>رمز عبور (۴ رقم)</label>
                     <input type="password" name="password" maxlength="4" pattern="\d{4}" required>
                 </div>
+
                 <button type="submit" class="btn-login">ورود</button>
             </form>
 
@@ -43,22 +46,22 @@
     <script>
         // لود مدارس
         async function loadSchools() {
+            const sel = document.getElementById('school_id');
             try {
                 const res = await fetch('/api/schools_list');
                 const data = await res.json();
-                if (data.success) {
-                    const sel = document.getElementById('school_id');
-                    if (!data.schools.length) {
-                        sel.innerHTML = '<option value="">هنوز مدرسه‌ای ثبت نشده</option>';
-                        return;
-                    }
+
+                if (data.success && data.schools.length) {
                     sel.innerHTML = '<option value="">-- انتخاب کنید --</option>';
                     data.schools.forEach(s => {
                         sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
                     });
+                } else {
+                    sel.innerHTML = '<option value="">هنوز مدرسه‌ای ثبت نشده</option>';
                 }
             } catch (e) {
-                console.error(e);
+                console.error('خطا در لود مدارس:', e);
+                sel.innerHTML = '<option value="">خطا در بارگذاری</option>';
             }
         }
 
@@ -72,7 +75,8 @@
             }
         });
 
-        loadSchools();
+        // اجرا در بارگذاری صفحه
+        window.addEventListener('DOMContentLoaded', loadSchools);
     </script>
 </body>
 </html>
