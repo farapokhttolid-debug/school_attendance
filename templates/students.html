@@ -42,7 +42,9 @@
                 <input type="text" id="first_name" placeholder="نام" required>
                 <input type="text" id="last_name" placeholder="نام خانوادگی" required>
                 <input type="text" id="father_name" placeholder="نام پدر">
-                <input type="text" id="grade" placeholder="پایه (مثلاً هفتم)" required>
+                <select id="grade" required>
+                <option value="">-- انتخاب پایه --</option>
+                </select>
                 <input type="text" id="class_name" placeholder="کلاس (مثلاً ۷/۱)" required>
                 <input type="text" id="field" placeholder="رشته (اختیاری)">
                 <input type="text" id="phone1" placeholder="شماره همراه ۱" required>
@@ -102,7 +104,9 @@
                 <input type="text" id="edit_first_name" placeholder="نام" required>
                 <input type="text" id="edit_last_name" placeholder="نام خانوادگی" required>
                 <input type="text" id="edit_father_name" placeholder="نام پدر">
-                <input type="text" id="edit_grade" placeholder="پایه" required>
+                <select id="edit_grade" required>
+                    <option value="">-- انتخاب پایه --</option>
+                </select>
                 <input type="text" id="edit_class_name" placeholder="کلاس" required>
                 <input type="text" id="edit_field" placeholder="رشته">
                 <input type="text" id="edit_phone1" placeholder="شماره ۱">
@@ -219,7 +223,9 @@
             document.getElementById('edit_first_name').value = student.first_name;
             document.getElementById('edit_last_name').value = student.last_name;
             document.getElementById('edit_father_name').value = student.father_name || '';
-            document.getElementById('edit_grade').value = student.grade;
+            setTimeout(() => {
+                document.getElementById('edit_grade').value = student.grade;
+            }, 100);
             document.getElementById('edit_class_name').value = student.class_name;
             document.getElementById('edit_field').value = student.field || '';
             document.getElementById('edit_phone1').value = student.phone1 || '';
@@ -259,6 +265,37 @@
         document.getElementById('btnCancelEdit').onclick = () => {
             document.getElementById('editModal').style.display = 'none';
         };
+
+        // ==================== لود پایه‌ها از تنظیمات ====================
+async function loadGradesFromSettings() {
+    const res = await fetch('/api/settings/grades');
+    const data = await res.json();
+
+    if (data.success && data.grades.length) {
+        const grades = data.grades;
+
+        // فرم افزودن
+        const addSel = document.getElementById('grade');
+        addSel.innerHTML = '<option value="">-- انتخاب پایه --</option>';
+        grades.forEach(g => {
+            addSel.innerHTML += `<option value="${g}">${g}</option>`;
+        });
+
+        // فرم ویرایش
+        const editSel = document.getElementById('edit_grade');
+        editSel.innerHTML = '<option value="">-- انتخاب پایه --</option>';
+        grades.forEach(g => {
+            editSel.innerHTML += `<option value="${g}">${g}</option>`;
+        });
+
+        // فیلتر
+        const filterSel = document.getElementById('filterGrade');
+        filterSel.innerHTML = '<option value="">همه پایه‌ها</option>';
+        grades.forEach(g => {
+            filterSel.innerHTML += `<option value="${g}">${g}</option>`;
+        });
+    }
+}
 
         // ==================== آپلود اکسل ====================
 document.getElementById('uploadForm').addEventListener('submit', async (e) => {
@@ -329,7 +366,7 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         };
 
         // ==================== شروع ====================
-        loadGrades();
+        loadGradesFromSettings();
         loadClasses();
         loadStudents();
     </script>
