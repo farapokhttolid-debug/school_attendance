@@ -3,6 +3,7 @@ from core.database import get_db_connection
 from core.logger import get_logger
 from blueprints.decorators import admin_required
 from datetime import datetime
+import io
 
 logger = get_logger(__name__)
 
@@ -328,4 +329,58 @@ def upload_excel():
         })
     except Exception as e:
         logger.error(f"خطا در آپلود اکسل: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =====================================================
+# دانلود قالب اکسل
+# =====================================================
+@admin_required
+def download_template():
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+        from flask import send_file
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "قالب دانش‌آموزان"
+        ws.sheet_view.rightToLeft = True
+
+        headers = [
+            'کد ملی', 'نام', 'نام خانوادگی', 'نام پدر',
+            'پایه', 'کلاس', 'رشته', 'شماره همراه ۱', 'شماره همراه ۲'
+        ]
+        ws.append(headers)
+
+        # استایل هدر
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="764ba2", end_color="764ba2", fill_type="solid")
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # یه نمونه
+        ws.append([
+            '0012345678', 'علی', 'محمدی', 'حسن',
+            'هفتم', '۷/۱', 'ریاضی', '09121234567', '09129876543'
+        ])
+
+        # عرض ستون‌ها
+        widths = [15, 15, 15, 15, 10, 10, 15, 18, 18]
+        for i, w in enumerate(widths, start=1):
+            ws.column_dimensions[chr(64 + i)].width = w
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='student_template.xlsx'
+        )
+    except Exception as e:
+        logger.error(f"خطا در ساخت قالب: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

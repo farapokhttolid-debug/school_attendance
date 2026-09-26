@@ -100,6 +100,11 @@ def change_my_password():
 def api_schools_list():
     return auth_bp.get_schools_list()
 
+@app.route('/api/students/template')
+@admin_required
+def api_students_template():
+    return students_bp.download_template()
+
 # =====================================================
 # تنظیمات مدرسه
 # =====================================================
