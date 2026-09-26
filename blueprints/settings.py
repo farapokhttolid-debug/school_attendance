@@ -104,10 +104,6 @@ def save_settings():
         logger.error(f"خطا در ذخیره تنظیمات: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# =====================================================
-# لیست پایه‌ها (برای فیلترها و فرم‌ها)
-# =====================================================
 def get_grades_from_settings():
     try:
         school_id = session.get('school_id')
