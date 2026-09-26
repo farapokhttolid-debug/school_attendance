@@ -144,6 +144,12 @@ def api_schools_enter(school_id):
 def api_schools_exit():
     return schools_bp.exit_school()
 
+@app.route('/profile')
+def profile_page():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('profile.html')
+
 # =====================================================
 # مدیریت کاربران
 # =====================================================

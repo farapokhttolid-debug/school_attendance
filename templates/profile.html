@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پروفایل کاربری</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>پروفایل کاربری</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- اطلاعات کاربر -->
+        <section class="card">
+            <h2>اطلاعات حساب</h2>
+            <table class="data-table">
+                <tbody>
+                    <tr>
+                        <td><b>نام کاربری:</b></td>
+                        <td>{{ session.username }}</td>
+                    </tr>
+                    <tr>
+                        <td><b>مدرسه:</b></td>
+                        <td>{{ session.school_name or 'مدیریت کل سیستم' }}</td>
+                    </tr>
+                    <tr>
+                        <td><b>نقش:</b></td>
+                        <td>
+                            {% if session.is_super_admin %}👑 مدیر کل
+                            {% elif session.is_admin %}🔑 ادمین مدرسه
+                            {% else %}👤 کاربر عادی{% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- تغییر رمز -->
+        <section class="card">
+            <h2>تغییر رمز عبور</h2>
+            <form id="changePasswordForm" class="form-grid">
+                <div class="form-group" style="grid-column: 1/-1;">
+                    <label>رمز عبور فعلی</label>
+                    <input type="password" id="current_password" maxlength="4" pattern="\d{4}" required>
+                </div>
+                <div class="form-group">
+                    <label>رمز عبور جدید</label>
+                    <input type="password" id="new_password" maxlength="4" pattern="\d{4}" required>
+                </div>
+                <div class="form-group">
+                    <label>تکرار رمز عبور جدید</label>
+                    <input type="password" id="confirm_password" maxlength="4" pattern="\d{4}" required>
+                </div>
+                <div style="grid-column: 1/-1; margin-top:10px;">
+                    <button type="submit" class="btn-primary">تغییر رمز</button>
+                </div>
+            </form>
+            <div id="passwordMessage" style="margin-top:15px;"></div>
+        </section>
+    </main>
+
+    <script>
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPwd = document.getElementById('current_password').value.trim();
+            const newPwd = document.getElementById('new_password').value.trim();
+            const confirmPwd = document.getElementById('confirm_password').value.trim();
+            const msg = document.getElementById('passwordMessage');
+
+            // اعتبارسنجی سمت کلاینت
+            if (!currentPwd || !newPwd || !confirmPwd) {
+                msg.innerHTML = '<span style="color:red;">❌ همه فیلدها را پر کنید</span>';
+                return;
+            }
+
+            if (!/^\d{4}$/.test(newPwd)) {
+                msg.innerHTML = '<span style="color:red;">❌ رمز جدید باید ۴ رقم عددی باشد</span>';
+                return;
+            }
+
+            if (newPwd !== confirmPwd) {
+                msg.innerHTML = '<span style="color:red;">❌ رمز جدید با تکرارش مطابقت ندارد</span>';
+                return;
+            }
+
+            if (currentPwd === newPwd) {
+                msg.innerHTML = '<span style="color:red;">❌ رمز جدید نباید با رمز فعلی یکسان باشد</span>';
+                return;
+            }
+
+            msg.innerHTML = '⏳ در حال ذخیره...';
+
+            try {
+                const res = await fetch('/api/change_my_password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        current_password: currentPwd,
+                        new_password: newPwd,
+                        confirm_password: confirmPwd
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    msg.innerHTML = '<span style="color:green;">✅ رمز عبور با موفقیت تغییر کرد</span>';
+                    document.getElementById('changePasswordForm').reset();
+                } else {
+                    msg.innerHTML = '<span style="color:red;">❌ ' + data.error + '</span>';
+                }
+            } catch (err) {
+                msg.innerHTML = '<span style="color:red;">❌ خطا در ارتباط با سرور</span>';
+            }
+        });
+    </script>
+</body>
+</html>
