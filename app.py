@@ -14,6 +14,7 @@ from blueprints import students as students_bp
 from blueprints import attendance as attendance_bp
 from blueprints import reports as reports_bp
 from blueprints import users as users_bp
+from blueprints import settings as settings_bp
 
 logger = get_logger(__name__)
 
@@ -98,6 +99,31 @@ def change_my_password():
 @app.route('/api/schools_list')
 def api_schools_list():
     return auth_bp.get_schools_list()
+
+# =====================================================
+# تنظیمات مدرسه
+# =====================================================
+@app.route('/settings')
+@admin_required
+def settings_page():
+    return settings_bp.settings_page()
+
+
+@app.route('/api/settings/get')
+@admin_required
+def api_settings_get():
+    return settings_bp.get_settings()
+
+
+@app.route('/api/settings/save', methods=['POST'])
+@admin_required
+def api_settings_save():
+    return settings_bp.save_settings()
+
+
+@app.route('/api/settings/grades')
+def api_settings_grades():
+    return settings_bp.get_grades_from_settings()
 
 
 # =====================================================

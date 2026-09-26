@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تنظیمات مدرسه</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>تنظیمات مدرسه</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>اطلاعات مدرسه</h2>
+            <form id="settingsForm" class="form-grid">
+                <div class="form-group" style="grid-column: 1/-1;">
+                    <label>نام مدرسه *</label>
+                    <input type="text" id="school_name" required>
+                </div>
+
+                <div class="form-group" style="grid-column: 1/-1;">
+                    <label>آدرس</label>
+                    <input type="text" id="address">
+                </div>
+
+                <div class="form-group">
+                    <label>تلفن</label>
+                    <input type="text" id="phone">
+                </div>
+
+                <div class="form-group">
+                    <label>سال تحصیلی</label>
+                    <input type="text" id="academic_year" placeholder="مثلاً 1404-1405">
+                </div>
+
+                <div class="form-group">
+                    <label>نام مدیر</label>
+                    <input type="text" id="principal_name">
+                </div>
+
+                <div class="form-group" style="grid-column: 1/-1;">
+                    <label>پایه‌های فعال (با کاما جدا کنید)</label>
+                    <input type="text" id="grades_list" placeholder="مثلاً: هفتم, هشتم, نهم">
+                    <small style="color:#888; font-size:12px; display:block; margin-top:5px;">
+                        این پایه‌ها توی فیلترها و فرم افزودن دانش‌آموز نمایش داده می‌شن
+                    </small>
+                </div>
+
+                <div style="grid-column: 1/-1; margin-top:10px;">
+                    <button type="submit" class="btn-primary">ذخیره تنظیمات</button>
+                </div>
+            </form>
+            <div id="settingsMessage" style="margin-top:15px;"></div>
+        </section>
+    </main>
+
+    <script>
+        // لود تنظیمات
+        async function loadSettings() {
+            const res = await fetch('/api/settings/get');
+            const data = await res.json();
+
+            if (data.success) {
+                document.getElementById('school_name').value = data.settings.school_name || '';
+                document.getElementById('address').value = data.settings.address || '';
+                document.getElementById('phone').value = data.settings.phone || '';
+                document.getElementById('academic_year').value = data.settings.academic_year || '';
+                document.getElementById('principal_name').value = data.settings.principal_name || '';
+                document.getElementById('grades_list').value = data.settings.grades_list || '';
+            }
+        }
+
+        // ذخیره
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                school_name: document.getElementById('school_name').value.trim(),
+                address: document.getElementById('address').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                academic_year: document.getElementById('academic_year').value.trim(),
+                principal_name: document.getElementById('principal_name').value.trim(),
+                grades_list: document.getElementById('grades_list').value.trim()
+            };
+
+            const msg = document.getElementById('settingsMessage');
+            msg.innerHTML = '⏳ در حال ذخیره...';
+
+            const res = await fetch('/api/settings/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                msg.innerHTML = '<span style="color:green;">✅ ' + data.message + '</span>';
+                setTimeout(() => msg.innerHTML = '', 3000);
+            } else {
+                msg.innerHTML = '<span style="color:red;">❌ ' + data.error + '</span>';
+            }
+        });
+
+        loadSettings();
+    </script>
+</body>
+</html>
