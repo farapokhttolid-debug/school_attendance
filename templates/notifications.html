@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ارسال پیام به والدین</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>ارسال پیام به والدین</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>انتخاب تاریخ</h2>
+            <div class="filters">
+                <label>تاریخ:</label>
+                <input type="text" id="date" placeholder="1404/07/08">
+                <button id="btnLoad" class="btn-primary">نمایش غایب‌ها</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="border:none; margin:0;">غایب‌های این روز</h2>
+                <div>
+                    <span id="countInfo" class="count-info"></span>
+                    <button id="btnSendAll" class="btn-primary" style="margin-right:10px;">ارسال به همه</button>
+                </div>
+            </div>
+
+            <div id="sendMessage"></div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="checkAll"></th>
+                        <th>#</th>
+                        <th>نام و نام خانوادگی</th>
+                        <th>پایه</th>
+                        <th>کلاس</th>
+                        <th>تلگرام</th>
+                        <th>بله</th>
+                    </tr>
+                </thead>
+                <tbody id="absentTable">
+                    <tr><td colspan="7" style="text-align:center;">تاریخ رو انتخاب و روی «نمایش غایب‌ها» بزن</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        async function loadAbsent() {
+            const date = document.getElementById('date').value.trim();
+            const url = '/api/notifications/absent?date=' + encodeURIComponent(date);
+            const res = await fetch(url);
+            const data = await res.json();
+
+            const tbody = document.getElementById('absentTable');
+            document.getElementById('countInfo').innerText = `تعداد: ${data.count || 0}`;
+
+            if (!data.success || !data.students.length) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">غایبی یافت نشد</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.students.map((s, i) => {
+                const tg = s.contacts.find(c => c.platform === 'telegram');
+                const bl = s.contacts.find(c => c.platform === 'bale');
+                return `
+                    <tr>
+                        <td><input type="checkbox" class="student-check" value="${s.student_id}" checked></td>
+                        <td>${i + 1}</td>
+                        <td>${s.first_name} ${s.last_name}</td>
+                        <td>${s.grade}</td>
+                        <td>${s.class_name}</td>
+                        <td>${tg ? '✅' : '❌'}</td>
+                        <td>${bl ? '✅' : '❌'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('checkAll').onchange = (e) => {
+            document.querySelectorAll('.student-check').forEach(c => c.checked = e.target.checked);
+        };
+
+        document.getElementById('btnLoad').onclick = loadAbsent;
+
+        document.getElementById('btnSendAll').onclick = async () => {
+            const date = document.getElementById('date').value.trim();
+            const ids = Array.from(document.querySelectorAll('.student-check:checked')).map(c => parseInt(c.value));
+
+            if (!ids.length) return alert('هیچ دانش‌آموزی انتخاب نشده');
+
+            if (!confirm(`ارسال پیام به ${ids.length} دانش‌آموز؟`)) return;
+
+            const msg = document.getElementById('sendMessage');
+            msg.innerHTML = '⏳ در حال ارسال...';
+
+            const res = await fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({date, student_ids: ids})
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                let html = `<div style="color:green;">✅ ${data.message}</div>`;
+                if (data.details && data.details.length) {
+                    html += '<ul style="color:#c33; font-size:12px; margin-top:10px; padding-right:20px;">';
+                    data.details.forEach(d => {
+                        html += `<li>${d}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                msg.innerHTML = html;
+            } else {
+                msg.innerHTML = `<div style="color:red;">❌ ${data.error}</div>`;
+            }
+        };
+
+        // تاریخ امروز
+        fetch('/api/attendance/today')
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('date').value = d.date;
+                loadAbsent();
+            });
+    </script>
+</body>
+</html>

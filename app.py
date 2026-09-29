@@ -15,6 +15,7 @@ from blueprints import attendance as attendance_bp
 from blueprints import reports as reports_bp
 from blueprints import users as users_bp
 from blueprints import settings as settings_bp
+from blueprints import notifications as notifications_bp
 
 logger = get_logger(__name__)
 
@@ -129,6 +130,38 @@ def api_settings_save():
 @app.route('/api/settings/grades')
 def api_settings_grades():
     return settings_bp.get_grades_from_settings()
+
+# =====================================================
+# ارسال پیام به والدین
+# =====================================================
+@app.route('/notifications')
+@admin_required
+def notifications_page():
+    return notifications_bp.notifications_page()
+
+
+@app.route('/api/notifications/absent')
+@admin_required
+def api_notifications_absent():
+    return notifications_bp.get_absent_list()
+
+
+@app.route('/api/notifications/send', methods=['POST'])
+@admin_required
+def api_notifications_send():
+    return notifications_bp.send_notifications()
+
+
+@app.route('/api/notifications/save_contact', methods=['POST'])
+@admin_required
+def api_notifications_save_contact():
+    return notifications_bp.save_parent_contact()
+
+
+@app.route('/api/notifications/contacts/<int:student_id>')
+@admin_required
+def api_notifications_contacts(student_id):
+    return notifications_bp.get_parent_contacts(student_id)
 
 
 # =====================================================

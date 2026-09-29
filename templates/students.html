@@ -175,6 +175,7 @@
                     <td>
                         <button class="btn-edit" onclick='openEdit(${JSON.stringify(s)})'>ویرایش</button>
                         <button class="btn-delete" onclick="deleteStudent(${s.id})">حذف</button>
+                        <button class="btn-secondary" onclick="openContacts(${s.id}, '${s.first_name} ${s.last_name}')">chat_id</button>
                     </td>
                 </tr>
             `).join('');

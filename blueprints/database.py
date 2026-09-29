@@ -23,6 +23,20 @@ def init_db():
         )
     ''')
 
+    # ========== جدول chat_id والدین ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS parent_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER NOT NULL,
+            platform TEXT NOT NULL,
+            chat_id TEXT NOT NULL,
+            phone TEXT,
+            created_at TEXT,
+            UNIQUE(student_id, platform),
+            FOREIGN KEY (student_id) REFERENCES students(id)
+        )
+    ''')
+
     # ========== جدول پرسنل (کاربران سیستم) ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS personnel (
