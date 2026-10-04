@@ -118,19 +118,29 @@
         </div>
     </div>
 
-    <script>
-        async function loadGrades() {
-            const res = await fetch('/api/students/grades');
-            const data = await res.json();
-            if (data.success) {
-                const sel = document.getElementById('filterGrade');
-                sel.innerHTML = '<option value="">همه پایه‌ها</option>';
-                data.grades.forEach(g => {
-                    sel.innerHTML += `<option value="${g}">${g}</option>`;
-                });
-            }
-        }
+    <div id="contactsModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>chat_id والدین</h3>
+            <p style="color:#666; font-size:13px;" id="contactStudentName"></p>
 
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Telegram chat_id</label>
+                <input type="text" id="contact_telegram" placeholder="مثلاً 123456789">
+            </div>
+
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Bale chat_id</label>
+                <input type="text" id="contact_bale" placeholder="مثلاً 123456789">
+            </div>
+
+            <div class="modal-buttons">
+                <button type="button" class="btn-primary" onclick="saveContacts()">ذخیره</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('contactsModal').style.display='none'">انصراف</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
         async function loadClasses(grade = '') {
             const res = await fetch('/api/students/classes?grade=' + encodeURIComponent(grade));
             const data = await res.json();
@@ -258,6 +268,43 @@
         document.getElementById('btnCancelEdit').onclick = () => {
             document.getElementById('editModal').style.display = 'none';
         };
+
+        let currentContactStudentId = null;
+
+        async function openContacts(studentId, fullName) {
+            currentContactStudentId = studentId;
+            document.getElementById('contactStudentName').innerText = fullName;
+
+            const res = await fetch(`/api/notifications/contacts/${studentId}`);
+            const data = await res.json();
+
+            if (data.success) {
+                document.getElementById('contact_telegram').value = data.contacts.telegram || '';
+                document.getElementById('contact_bale').value = data.contacts.bale || '';
+            }
+
+            document.getElementById('contactsModal').style.display = 'flex';
+        }
+
+        async function saveContacts() {
+            const tg = document.getElementById('contact_telegram').value.trim();
+            const bl = document.getElementById('contact_bale').value.trim();
+
+            await fetch('/api/notifications/save_contact', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: currentContactStudentId, platform: 'telegram', chat_id: tg})
+            });
+
+            await fetch('/api/notifications/save_contact', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: currentContactStudentId, platform: 'bale', chat_id: bl})
+            });
+
+            document.getElementById('contactsModal').style.display = 'none';
+            alert('✅ ذخیره شد');
+        }
 
         async function loadGradesFromSettings() {
             const res = await fetch('/api/settings/grades');
