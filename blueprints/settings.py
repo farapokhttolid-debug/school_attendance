@@ -4,6 +4,7 @@ from core.logger import get_logger
 from blueprints.decorators import admin_required
 from datetime import datetime
 import re
+from core.activity import log_activity
 
 logger = get_logger(__name__)
 
@@ -94,6 +95,7 @@ def save_settings():
             ''', (school_id, key, value))
 
         conn.commit()
+        log_activity('save_settings', 'settings', school_id, school_name)
         conn.close()
 
         # به‌روزرسانی نام مدرسه توی session

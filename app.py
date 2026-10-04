@@ -16,6 +16,7 @@ from blueprints import reports as reports_bp
 from blueprints import users as users_bp
 from blueprints import settings as settings_bp
 from blueprints import notifications as notifications_bp
+from blueprints import activity as activity_bp
 
 logger = get_logger(__name__)
 
@@ -344,6 +345,29 @@ def api_reports_data():
 @admin_required
 def api_reports_export():
     return reports_bp.export_excel()
+
+@app.route('/activity')
+@admin_required
+def activity_page():
+    return activity_bp.activity_page()
+
+
+@app.route('/api/activity/list')
+@admin_required
+def api_activity_list():
+    return activity_bp.list_activities()
+
+
+@app.route('/api/activity/actions')
+@admin_required
+def api_activity_actions():
+    return activity_bp.get_action_types()
+
+
+@app.route('/api/activity/users')
+@admin_required
+def api_activity_users():
+    return activity_bp.get_users()
 
 
 # =====================================================

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لاگ فعالیت‌ها</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>لاگ فعالیت‌ها</h1>
+            <div class="user-info">
+                <a href="/" class="btn-back">بازگشت</a>
+                <a href="/logout" class="btn-logout">خروج</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>فیلترها</h2>
+            <div class="filters">
+                <select id="filterUser">
+                    <option value="">همه کاربران</option>
+                </select>
+                <select id="filterAction">
+                    <option value="">همه فعالیت‌ها</option>
+                </select>
+                <div>
+                    <label>از:</label>
+                    <input type="text" id="dateFrom" placeholder="1404/07/01">
+                </div>
+                <div>
+                    <label>تا:</label>
+                    <input type="text" id="dateTo" placeholder="1404/07/30">
+                </div>
+                <button id="btnSearch" class="btn-primary">نمایش</button>
+                <button id="btnClear" class="btn-secondary">پاک کردن</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div id="countInfo" class="count-info"></div>
+            <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>کاربر</th>
+                            <th>فعالیت</th>
+                            <th>هدف</th>
+                            <th>جزئیات</th>
+                            <th>تاریخ و زمان</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activityTable">
+                        <tr><td colspan="6" style="text-align:center;">در حال بارگذاری...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const actionLabels = {
+            'login': 'ورود به سیستم',
+            'logout': 'خروج از سیستم',
+            'add_student': 'افزودن دانش‌آموز',
+            'edit_student': 'ویرایش دانش‌آموز',
+            'delete_student': 'حذف دانش‌آموز',
+            'upload_excel': 'آپلود اکسل',
+            'save_attendance': 'ثبت حضور',
+            'save_attendance_bulk': 'ثبت گروهی حضور',
+            'send_notification': 'ارسال پیام',
+            'add_user': 'ساخت کاربر',
+            'delete_user': 'حذف کاربر',
+            'change_password': 'تغییر رمز',
+            'save_settings': 'ذخیره تنظیمات',
+            'add_school': 'ساخت مدرسه',
+            'toggle_school': 'تغییر وضعیت مدرسه',
+            'save_parent_contact': 'ثبت chat_id'
+        };
+
+        const targetLabels = {
+            'student': 'دانش‌آموز',
+            'user': 'کاربر',
+            'school': 'مدرسه',
+            'attendance': 'حضور',
+            'settings': 'تنظیمات'
+        };
+
+        async function loadFilters() {
+            const usersRes = await fetch('/api/activity/users');
+            const usersData = await usersRes.json();
+            if (usersData.success) {
+                const sel = document.getElementById('filterUser');
+                usersData.users.forEach(u => {
+                    sel.innerHTML += `<option value="${u}">${u}</option>`;
+                });
+            }
+
+            const actionsRes = await fetch('/api/activity/actions');
+            const actionsData = await actionsRes.json();
+            if (actionsData.success) {
+                const sel = document.getElementById('filterAction');
+                actionsData.actions.forEach(a => {
+                    sel.innerHTML += `<option value="${a}">${actionLabels[a] || a}</option>`;
+                });
+            }
+        }
+
+        async function loadActivities() {
+            const params = new URLSearchParams();
+            const u = document.getElementById('filterUser').value;
+            const a = document.getElementById('filterAction').value;
+            const df = document.getElementById('dateFrom').value.trim();
+            const dt = document.getElementById('dateTo').value.trim();
+
+            if (u) params.append('username', u);
+            if (a) params.append('action', a);
+            if (df) params.append('date_from', df);
+            if (dt) params.append('date_to', dt);
+
+            const res = await fetch('/api/activity/list?' + params.toString());
+            const data = await res.json();
+
+            const tbody = document.getElementById('activityTable');
+            document.getElementById('countInfo').innerText = `تعداد: ${data.count || 0}`;
+
+            if (!data.success || !data.activities.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">فعالیتی یافت نشد</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.activities.map((a, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${a.username}</td>
+                    <td>${actionLabels[a.action] || a.action}</td>
+                    <td>${targetLabels[a.target_type] || a.target_type || '-'}</td>
+                    <td>${a.details || '-'}</td>
+                    <td>${a.created_at || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('btnSearch').onclick = loadActivities;
+
+        document.getElementById('btnClear').onclick = () => {
+            document.getElementById('filterUser').value = '';
+            document.getElementById('filterAction').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            loadActivities();
+        };
+
+        loadFilters();
+        loadActivities();
+    </script>
+</body>
+</html>

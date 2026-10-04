@@ -23,6 +23,19 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_id INTEGER,
+            username TEXT,
+            action TEXT NOT NULL,
+            target_type TEXT,
+            target_id INTEGER,
+            details TEXT,
+            created_at TEXT
+        )
+    ''')
+
     # ========== جدول chat_id والدین ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS parent_contacts (

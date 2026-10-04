@@ -2,6 +2,7 @@ from flask import render_template, request, session, redirect, jsonify
 from core.database import get_db_connection
 from core.logger import get_logger
 from datetime import datetime
+from core.activity import log_activity
 
 logger = get_logger(__name__)
 
@@ -87,6 +88,8 @@ def login_page():
         else:
             session['school_name'] = 'مدیریت کل سیستم'
 
+        log_activity('login', 'user', None, None)
+
         return redirect('/')
 
     except Exception as e:
@@ -95,6 +98,7 @@ def login_page():
 
 
 def logout():
+    log_activity('logout', 'user', None, None)
     session.clear()
     return redirect('/login')
 

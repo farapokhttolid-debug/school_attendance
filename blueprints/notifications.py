@@ -4,6 +4,7 @@ from core.logger import get_logger
 from core.notifier import send_to_parent
 from blueprints.decorators import admin_required
 from datetime import datetime
+from core.activity import log_activity
 
 logger = get_logger(__name__)
 
@@ -147,6 +148,7 @@ def send_notifications():
                 results.append(f"{first_name} {last_name}: هیچ chat_id ثبت نشده")
 
         conn.close()
+        log_activity('send_notification', 'student', None, f"{success_count} پیام برای {date}")
 
         return jsonify({
             'success': True,
@@ -199,6 +201,7 @@ def save_parent_contact():
 
         conn.commit()
         conn.close()
+        log_activity('save_parent_contact', 'student', student_id, f"{platform}")
 
         return jsonify({'success': True, 'message': 'ذخیره شد'})
     except Exception as e:

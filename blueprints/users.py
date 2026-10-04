@@ -3,6 +3,7 @@ from core.database import get_db_connection
 from core.logger import get_logger
 from blueprints.decorators import admin_required
 from datetime import datetime
+from core.activity import log_activity
 
 logger = get_logger(__name__)
 
@@ -129,6 +130,7 @@ def add_user():
 
         conn.commit()
         conn.close()
+        log_activity('add_user', 'user', None, f"{username} ({role})")
 
         return jsonify({'success': True, 'message': 'کاربر ساخته شد'})
     except Exception as e:
@@ -175,6 +177,7 @@ def delete_user(user_id):
         cursor.execute("UPDATE users SET is_active = 0 WHERE id = ?", (user_id,))
         conn.commit()
         conn.close()
+        log_activity('delete_user', 'user', user_id)
 
         return jsonify({'success': True, 'message': 'کاربر حذف شد'})
     except Exception as e:
@@ -217,6 +220,7 @@ def change_user_password(user_id):
         cursor.execute("UPDATE users SET password = ? WHERE id = ?", (new_password, user_id))
         conn.commit()
         conn.close()
+        log_activity('change_password', 'user', user_id)
 
         return jsonify({'success': True, 'message': 'رمز عبور تغییر کرد'})
     except Exception as e:

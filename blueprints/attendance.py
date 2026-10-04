@@ -2,6 +2,7 @@ from flask import render_template, request, jsonify, session
 from core.database import get_db_connection
 from core.logger import get_logger
 from datetime import datetime
+from core.activity import log_activity
 
 logger = get_logger(__name__)
 
@@ -189,6 +190,7 @@ def save_attendance_bulk():
 
         conn.commit()
         conn.close()
+        log_activity('save_attendance_bulk', 'attendance', None, f"{saved} رکورد برای {date}")
         return jsonify({'success': True, 'message': f'{saved} رکورد ذخیره شد'})
     except Exception as e:
         logger.error(f"خطا در ذخیره گروهی: {e}")

@@ -4,6 +4,7 @@ from core.logger import get_logger
 from blueprints.decorators import admin_required
 from datetime import datetime
 import io
+from core.activity import log_activity
 
 logger = get_logger(__name__)
 
@@ -122,6 +123,7 @@ def add_student():
         conn.commit()
         student_id = cursor.lastrowid
         conn.close()
+        log_activity('add_student', 'student', student_id, f"{first_name} {last_name}")
 
         return jsonify({'success': True, 'message': 'دانش‌آموز اضافه شد', 'id': student_id})
     except Exception as e:
@@ -166,6 +168,7 @@ def edit_student(student_id):
 
         conn.commit()
         conn.close()
+        log_activity('edit_student', 'student', student_id, f"{data.get('first_name')} {data.get('last_name')}")
         return jsonify({'success': True, 'message': 'تغییرات ذخیره شد'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -186,6 +189,7 @@ def delete_student(student_id):
         )
         conn.commit()
         conn.close()
+        log_activity('delete_student', 'student', student_id)
         return jsonify({'success': True, 'message': 'دانش‌آموز حذف شد'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -319,6 +323,7 @@ def upload_excel():
 
         conn.commit()
         conn.close()
+        log_activity('upload_excel', 'student', None, f"{success_count} دانش‌آموز")
 
         return jsonify({
             'success': True,

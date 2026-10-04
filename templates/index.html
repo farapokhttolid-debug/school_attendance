@@ -37,6 +37,9 @@
             {% if session.is_admin or session.is_super_admin %}
             <a href="/settings" class="menu-item">تنظیمات مدرسه</a>
             {% endif %}
+            {% if session.is_admin or session.is_super_admin %}
+            <a href="/activity" class="menu-item">لاگ فعالیت‌ها</a>
+            {% endif %}
         </div>
     </main>
 
