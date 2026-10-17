@@ -16,9 +16,7 @@ class Config:
     DEBUG = False
     TESTING = False
 
-    # ========== دیتابیس ==========
-    # مسیر دیتابیس SQLite رو کنار خود app.py می‌ذاریم
-    DB_PATH = os.path.join(BASE_DIR, 'attendance.db')
+    DB_PATH = os.environ.get('DB_PATH_OVERRIDE', os.path.join(BASE_DIR, 'attendance.db'))
 
     # ========== Session ==========
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
