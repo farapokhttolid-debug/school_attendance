@@ -64,8 +64,11 @@ def login_page():
         user = cursor.fetchone()
         conn.close()
 
-        if not user or user['password'] != password:
-            return render_template('login.html', error='نام کاربری یا رمز عبور اشتباه است')
+        if not user:
+            return render_template('login.html', error=f'DBG: user not found (school_id={school_id})')
+
+        if user['password'] != password:
+            return render_template('login.html', error=f'DBG: wrong pass. DB has: {user["password"]} but sent: {password}')
 
         if not user['is_active']:
             return render_template('login.html', error='این کاربر غیرفعال شده است')
